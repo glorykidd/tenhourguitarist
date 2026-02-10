@@ -1,0 +1,186 @@
+@page "/admin/lessons/new"
+@page "/admin/lessons/{Id:int}"
+@layout AdminLayout
+@attribute [Authorize(Policy = "InstructorOrAdmin")]
+
+@inject ILessonService LessonService
+@inject ICourseService CourseService
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+
+@using System.Text.RegularExpressions
+
+<PageTitle>@(_isEdit ? "Edit Lesson" : "Add Lesson")</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">@(_isEdit ? "Edit Lesson" : "Add Lesson")</MudText>
+
+@if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else
+{
+    <MudPaper Class="pa-4" Elevation="2">
+        <MudForm @ref="_form" @bind-IsValid="_formValid">
+            <MudGrid>
+                <MudItem xs="12" md="8">
+                    <MudTextField @bind-Value="_lesson.Name" Label="Name" Required="true"
+                                  RequiredError="Name is required"
+                                  Immediate="true"
+                                  TextChanged="OnNameChanged" />
+                </MudItem>
+
+                <MudItem xs="12" md="4">
+                    <MudTextField @bind-Value="_lesson.Slug" Label="Slug" Required="true"
+                                  RequiredError="Slug is required"
+                                  HelperText="Auto-generated from name" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_lesson.Description" Label="Description"
+                                  Lines="5" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_lesson.Subject" Label="Subject" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudSelect @bind-Value="_lesson.CourseId" Label="Course" Required="true"
+                               RequiredError="Course is required">
+                        @foreach (var course in _courses)
+                        {
+                            <MudSelectItem Value="@course.Id">@course.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_lesson.VideoUrl" Label="Video URL" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_lesson.FreeVideoUrl" Label="Free Video URL" />
+                </MudItem>
+
+                <MudItem xs="12" md="4">
+                    <MudNumericField @bind-Value="_lesson.DurationMinutes" Label="Duration (Minutes)"
+                                     Min="0" />
+                </MudItem>
+
+                <MudItem xs="12" md="4">
+                    <MudNumericField @bind-Value="_lesson.DurationSeconds" Label="Duration (Seconds)"
+                                     Min="0" Max="59" />
+                </MudItem>
+
+                <MudItem xs="12" md="4">
+                    <MudNumericField @bind-Value="_lesson.DisplayOrder" Label="Display Order"
+                                     Min="0" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <ImageUpload CurrentImagePath="@_lesson.CoverImagePath"
+                                 Subfolder="lessons"
+                                 OnUploaded="OnCoverImageUploaded" />
+                </MudItem>
+
+                <MudItem xs="12" Class="d-flex gap-2">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                               OnClick="SaveAsync" Disabled="@(!_formValid || _saving)">
+                        @if (_saving)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        }
+                        @(_isEdit ? "Update Lesson" : "Create Lesson")
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined" Href="/admin/lessons">Cancel</MudButton>
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+    </MudPaper>
+}
+
+@code {
+    [Parameter] public int? Id { get; set; }
+
+    private MudForm _form = null!;
+    private bool _formValid;
+    private bool _loading = true;
+    private bool _saving;
+    private bool _isEdit;
+    private Lesson _lesson = new();
+    private List<Course> _courses = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isEdit = Id.HasValue;
+        _courses = await CourseService.GetAllAsync(publishedOnly: false);
+
+        if (_isEdit)
+        {
+            var lesson = await LessonService.GetByIdAsync(Id!.Value);
+            if (lesson is null)
+            {
+                Snackbar.Add("Lesson not found.", Severity.Error);
+                Navigation.NavigateTo("/admin/lessons");
+                return;
+            }
+            _lesson = lesson;
+        }
+
+        _loading = false;
+    }
+
+    private void OnNameChanged(string name)
+    {
+        if (!_isEdit || string.IsNullOrEmpty(_lesson.Slug))
+        {
+            _lesson.Slug = GenerateSlug(name);
+        }
+    }
+
+    private static string GenerateSlug(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return string.Empty;
+        var slug = text.ToLowerInvariant();
+        slug = Regex.Replace(slug, @"[^a-z0-9\s-]", "");
+        slug = Regex.Replace(slug, @"\s+", "-");
+        slug = Regex.Replace(slug, @"-+", "-");
+        return slug.Trim('-');
+    }
+
+    private void OnCoverImageUploaded(string path)
+    {
+        _lesson.CoverImagePath = path;
+    }
+
+    private async Task SaveAsync()
+    {
+        await _form.Validate();
+        if (!_formValid) return;
+
+        _saving = true;
+        try
+        {
+            if (_isEdit)
+            {
+                await LessonService.UpdateAsync(_lesson);
+                Snackbar.Add("Lesson updated successfully.", Severity.Success);
+            }
+            else
+            {
+                await LessonService.CreateAsync(_lesson);
+                Snackbar.Add("Lesson created successfully.", Severity.Success);
+            }
+            Navigation.NavigateTo("/admin/lessons");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to save lesson: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

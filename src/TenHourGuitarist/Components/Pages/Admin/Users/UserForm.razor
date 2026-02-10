@@ -1,0 +1,194 @@
+@page "/admin/users/{UserId}"
+@layout AdminLayout
+@attribute [Authorize(Policy = "AdminOnly")]
+
+@inject UserManager<ApplicationUser> UserManager
+@inject RoleManager<IdentityRole> RoleManager
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+
+@using Microsoft.AspNetCore.Identity
+
+<PageTitle>Edit User</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Edit User</MudText>
+
+@if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else if (_user is null)
+{
+    <MudAlert Severity="Severity.Error">User not found.</MudAlert>
+}
+else
+{
+    <MudPaper Class="pa-4" Elevation="2">
+        <MudForm @ref="_form" @bind-IsValid="_formValid">
+            <MudGrid>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_user.DisplayName" Label="Display Name" Required="true"
+                                  RequiredError="Display name is required" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_user.Email" Label="Email" Required="true"
+                                  RequiredError="Email is required"
+                                  InputType="InputType.Email" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudSelect T="string" Label="Roles" MultiSelection="true"
+                               @bind-SelectedValues="_selectedRoles">
+                        @foreach (var role in _allRoles)
+                        {
+                            <MudSelectItem T="string" Value="@role">@role</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudSwitch @bind-Value="_user.IsDeleted" Label="Is Deleted" Color="Color.Error" />
+                </MudItem>
+
+                <MudItem xs="12" Class="d-flex gap-2 flex-wrap">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                               OnClick="SaveAsync" Disabled="@(!_formValid || _saving)">
+                        @if (_saving)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        }
+                        Update User
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Warning"
+                               OnClick="ResetPasswordAsync" Disabled="@_resettingPassword">
+                        @if (_resettingPassword)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        }
+                        Reset Password
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined" Href="/admin/users">Cancel</MudButton>
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+    </MudPaper>
+}
+
+@code {
+    [Parameter] public string UserId { get; set; } = string.Empty;
+
+    private MudForm _form = null!;
+    private bool _formValid;
+    private bool _loading = true;
+    private bool _saving;
+    private bool _resettingPassword;
+    private ApplicationUser? _user;
+    private List<string> _allRoles = [];
+    private IEnumerable<string> _selectedRoles = [];
+    private IList<string> _originalRoles = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _loading = true;
+        try
+        {
+            _user = await UserManager.FindByIdAsync(UserId);
+            if (_user is null)
+            {
+                Snackbar.Add("User not found.", Severity.Error);
+                _loading = false;
+                return;
+            }
+
+            _allRoles = RoleManager.Roles.Select(r => r.Name!).ToList();
+            _originalRoles = await UserManager.GetRolesAsync(_user);
+            _selectedRoles = _originalRoles.ToList();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to load user: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        await _form.Validate();
+        if (!_formValid || _user is null) return;
+
+        _saving = true;
+        try
+        {
+            var updateResult = await UserManager.UpdateAsync(_user);
+            if (!updateResult.Succeeded)
+            {
+                var errors = string.Join(", ", updateResult.Errors.Select(e => e.Description));
+                Snackbar.Add($"Failed to update user: {errors}", Severity.Error);
+                return;
+            }
+
+            var rolesToRemove = _originalRoles.Except(_selectedRoles).ToList();
+            var rolesToAdd = _selectedRoles.Except(_originalRoles).ToList();
+
+            if (rolesToRemove.Count > 0)
+            {
+                await UserManager.RemoveFromRolesAsync(_user, rolesToRemove);
+            }
+            if (rolesToAdd.Count > 0)
+            {
+                await UserManager.AddToRolesAsync(_user, rolesToAdd);
+            }
+
+            Snackbar.Add("User updated successfully.", Severity.Success);
+            Navigation.NavigateTo("/admin/users");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to save user: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task ResetPasswordAsync()
+    {
+        if (_user is null) return;
+
+        _resettingPassword = true;
+        try
+        {
+            var token = await UserManager.GeneratePasswordResetTokenAsync(_user);
+            var newPassword = GenerateTemporaryPassword();
+            var result = await UserManager.ResetPasswordAsync(_user, token, newPassword);
+
+            if (result.Succeeded)
+            {
+                Snackbar.Add($"Password reset. Temporary password: {newPassword}", Severity.Success);
+            }
+            else
+            {
+                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                Snackbar.Add($"Password reset failed: {errors}", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Password reset failed: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _resettingPassword = false;
+        }
+    }
+
+    private static string GenerateTemporaryPassword()
+    {
+        return $"Temp{Guid.NewGuid().ToString("N")[..8]}!";
+    }
+}

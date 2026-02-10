@@ -1,0 +1,18 @@
+@using TinyMCE.Blazor
+
+<Editor @bind-Value="Value"
+        Conf="@_editorConfig"
+        ScriptSrc="https://cdn.tiny.cloud/1/no-api-key/tinymce/6/tinymce.min.js" />
+
+@code {
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+
+    private Dictionary<string, object> _editorConfig = new()
+    {
+        { "height", 400 },
+        { "menubar", true },
+        { "plugins", "advlist autolink lists link image charmap preview anchor searchreplace visualblocks code fullscreen insertdatetime media table code help wordcount" },
+        { "toolbar", "undo redo | blocks | bold italic forecolor | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | removeformat | help" }
+    };
+}

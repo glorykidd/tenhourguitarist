@@ -1,0 +1,141 @@
+@page "/admin/users"
+@layout AdminLayout
+@attribute [Authorize(Policy = "AdminOnly")]
+
+@inject UserManager<ApplicationUser> UserManager
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+
+@using Microsoft.AspNetCore.Identity
+
+<PageTitle>Manage Users</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Users</MudText>
+
+@if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else
+{
+    <MudDataGrid Items="@_userViewModels" Dense="true" Striped="true" Hover="true" Filterable="true" SortMode="SortMode.Multiple">
+        <Columns>
+            <PropertyColumn Property="x => x.Email" Title="Email" />
+            <PropertyColumn Property="x => x.DisplayName" Title="Display Name" />
+            <PropertyColumn Property="x => x.Roles" Title="Roles" />
+            <TemplateColumn Title="Created">
+                <CellTemplate>
+                    <MudText>@context.Item.CreatedAt.ToString("MMM dd, yyyy")</MudText>
+                </CellTemplate>
+            </TemplateColumn>
+            <TemplateColumn Title="Deleted">
+                <CellTemplate>
+                    <MudIcon Icon="@(context.Item.IsDeleted ? Icons.Material.Filled.Check : Icons.Material.Filled.Close)"
+                             Color="@(context.Item.IsDeleted ? Color.Error : Color.Default)" />
+                </CellTemplate>
+            </TemplateColumn>
+            <TemplateColumn Title="Actions" Sortable="false" Filterable="false">
+                <CellTemplate>
+                    <MudStack Row="true" Spacing="1">
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                       Color="Color.Primary"
+                                       Href="@($"/admin/users/{context.Item.UserId}")" />
+                        <MudIconButton Icon="@(context.Item.IsDeleted ? Icons.Material.Filled.Restore : Icons.Material.Filled.Delete)"
+                                       Size="Size.Small"
+                                       Color="@(context.Item.IsDeleted ? Color.Success : Color.Error)"
+                                       OnClick="@(() => ToggleDeleteUser(context.Item))" />
+                    </MudStack>
+                </CellTemplate>
+            </TemplateColumn>
+        </Columns>
+        <PagerContent>
+            <MudDataGridPager T="UserViewModel" />
+        </PagerContent>
+    </MudDataGrid>
+}
+
+@code {
+    private bool _loading = true;
+    private List<UserViewModel> _userViewModels = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUsersAsync();
+    }
+
+    private async Task LoadUsersAsync()
+    {
+        _loading = true;
+        try
+        {
+            var users = UserManager.Users.ToList();
+            _userViewModels = [];
+
+            foreach (var user in users)
+            {
+                var roles = await UserManager.GetRolesAsync(user);
+                _userViewModels.Add(new UserViewModel
+                {
+                    UserId = user.Id,
+                    Email = user.Email ?? string.Empty,
+                    DisplayName = user.DisplayName,
+                    Roles = string.Join(", ", roles),
+                    CreatedAt = user.CreatedAt,
+                    IsDeleted = user.IsDeleted
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to load users: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task ToggleDeleteUser(UserViewModel userVm)
+    {
+        var action = userVm.IsDeleted ? "restore" : "delete";
+        var parameters = new DialogParameters<ConfirmDialog>
+        {
+            { x => x.ContentText, $"Are you sure you want to {action} user \"{userVm.Email}\"?" },
+            { x => x.ButtonText, userVm.IsDeleted ? "Restore" : "Delete" },
+            { x => x.ButtonColor, userVm.IsDeleted ? Color.Success : Color.Error }
+        };
+
+        var dialog = await DialogService.ShowAsync<ConfirmDialog>($"{(userVm.IsDeleted ? "Restore" : "Delete")} User", parameters);
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled)
+        {
+            try
+            {
+                var user = await UserManager.FindByIdAsync(userVm.UserId);
+                if (user is not null)
+                {
+                    user.IsDeleted = !user.IsDeleted;
+                    await UserManager.UpdateAsync(user);
+                    Snackbar.Add($"User {action}d successfully.", Severity.Success);
+                    await LoadUsersAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Failed to {action} user: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+
+    private class UserViewModel
+    {
+        public string UserId { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string DisplayName { get; set; } = string.Empty;
+        public string Roles { get; set; } = string.Empty;
+        public DateTime CreatedAt { get; set; }
+        public bool IsDeleted { get; set; }
+    }
+}

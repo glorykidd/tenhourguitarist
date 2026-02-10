@@ -1,0 +1,140 @@
+@page "/contact"
+@inject IContactService ContactService
+
+<PageTitle>Contact Us - TenHourGuitarist</PageTitle>
+
+<section class="bg-dark text-white py-5">
+    <div class="container text-center">
+        <h1 class="display-5 fw-bold">Contact Us</h1>
+        <p class="lead mt-3">Have a question or feedback? We would love to hear from you.</p>
+    </div>
+</section>
+
+<section class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            @if (_submitted)
+            {
+                <StatusAlert Message="Thank you for your message! We will get back to you as soon as possible."
+                             Severity="Severity.Success"
+                             Closeable="false" />
+                <div class="text-center mt-3">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="ResetForm">
+                        Send Another Message
+                    </MudButton>
+                </div>
+            }
+            else
+            {
+                @if (!string.IsNullOrEmpty(_errorMessage))
+                {
+                    <StatusAlert Message="@_errorMessage" Severity="Severity.Error" />
+                }
+
+                <EditForm Model="_model" OnValidSubmit="HandleSubmit" FormName="contactForm">
+                    <DataAnnotationsValidator />
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <MudTextField @bind-Value="_model.Name"
+                                          Label="Name"
+                                          Required="true"
+                                          RequiredError="Name is required"
+                                          Variant="Variant.Outlined"
+                                          Class="mb-3" />
+                        </div>
+                        <div class="col-md-6">
+                            <MudTextField @bind-Value="_model.Email"
+                                          Label="Email"
+                                          InputType="InputType.Email"
+                                          Required="true"
+                                          RequiredError="Email is required"
+                                          Variant="Variant.Outlined"
+                                          Class="mb-3" />
+                        </div>
+                        <div class="col-md-6">
+                            <MudTextField @bind-Value="_model.Phone"
+                                          Label="Phone"
+                                          Variant="Variant.Outlined"
+                                          Class="mb-3" />
+                        </div>
+                        <div class="col-md-6">
+                            <MudTextField @bind-Value="_model.Subject"
+                                          Label="Subject"
+                                          Variant="Variant.Outlined"
+                                          Class="mb-3" />
+                        </div>
+                        <div class="col-12">
+                            <MudTextField @bind-Value="_model.Message"
+                                          Label="Message"
+                                          Lines="6"
+                                          Required="true"
+                                          RequiredError="Message is required"
+                                          Variant="Variant.Outlined"
+                                          Class="mb-3" />
+                        </div>
+                        <div class="col-12">
+                            <MudButton ButtonType="ButtonType.Submit"
+                                       Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       Size="Size.Large"
+                                       Disabled="_submitting">
+                                @if (_submitting)
+                                {
+                                    <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="me-2" />
+                                    <span>Sending...</span>
+                                }
+                                else
+                                {
+                                    <span>Send Message</span>
+                                }
+                            </MudButton>
+                        </div>
+                    </div>
+                </EditForm>
+            }
+        </div>
+    </div>
+</section>
+
+@code {
+    private ContactMessage _model = new();
+    private bool _submitting;
+    private bool _submitted;
+    private string? _errorMessage;
+
+    private async Task HandleSubmit()
+    {
+        if (string.IsNullOrWhiteSpace(_model.Name) ||
+            string.IsNullOrWhiteSpace(_model.Email) ||
+            string.IsNullOrWhiteSpace(_model.Message))
+        {
+            _errorMessage = "Please fill in all required fields.";
+            return;
+        }
+
+        _submitting = true;
+        _errorMessage = null;
+
+        try
+        {
+            await ContactService.CreateAsync(_model);
+            _submitted = true;
+        }
+        catch (Exception)
+        {
+            _errorMessage = "An error occurred while sending your message. Please try again.";
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+
+    private void ResetForm()
+    {
+        _model = new ContactMessage();
+        _submitted = false;
+        _errorMessage = null;
+    }
+}

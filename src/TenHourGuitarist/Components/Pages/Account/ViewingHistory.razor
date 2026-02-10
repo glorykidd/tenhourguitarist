@@ -1,0 +1,138 @@
+@page "/account/history"
+@attribute [Authorize]
+@inject ILessonService LessonService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ILogger<ViewingHistory> Logger
+
+<PageTitle>Viewing History - TenHourGuitarist</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="py-8">
+    <MudText Typo="Typo.h4" Class="mb-6">Viewing History</MudText>
+
+    @if (_loading)
+    {
+        <LoadingSpinner Message="Loading your viewing history..." />
+    }
+    else if (_history is null || _history.Count == 0)
+    {
+        <MudPaper Elevation="2" Class="pa-8">
+            <div class="d-flex flex-column align-center">
+                <MudIcon Icon="@Icons.Material.Filled.History" Size="Size.Large" Color="Color.Secondary" Class="mb-4" />
+                <MudText Typo="Typo.h6" Color="Color.Secondary" Class="mb-2">No Viewing History</MudText>
+                <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mb-4">
+                    You haven't watched any lessons yet. Start exploring our courses!
+                </MudText>
+                <MudButton Href="/courses" Variant="Variant.Filled" Color="Color.Primary">
+                    Browse Courses
+                </MudButton>
+            </div>
+        </MudPaper>
+    }
+    else
+    {
+        <MudTable Items="_history" Hover="true" Elevation="2" Dense="false">
+            <HeaderContent>
+                <MudTh>Course</MudTh>
+                <MudTh>Lesson</MudTh>
+                <MudTh>Viewed</MudTh>
+                <MudTh></MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Course">
+                    <MudText Typo="Typo.body1">
+                        @(context.Course?.Name ?? "Unknown Course")
+                    </MudText>
+                </MudTd>
+                <MudTd DataLabel="Lesson">
+                    <MudText Typo="Typo.body1">
+                        @(context.Lesson?.Name ?? "Unknown Lesson")
+                    </MudText>
+                </MudTd>
+                <MudTd DataLabel="Viewed">
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        @context.ViewedAt.ToString("MMM dd, yyyy h:mm tt")
+                    </MudText>
+                </MudTd>
+                <MudTd>
+                    @if (context.Course is not null && context.Lesson is not null)
+                    {
+                        <MudButton Href="@($"/courses/{context.Course.Slug}/{context.Lesson.Slug}")"
+                                   Variant="Variant.Text"
+                                   Color="Color.Primary"
+                                   Size="Size.Small"
+                                   EndIcon="@Icons.Material.Filled.PlayArrow">
+                            Watch Again
+                        </MudButton>
+                    }
+                </MudTd>
+            </RowTemplate>
+            <PagerContent>
+                <div class="d-flex justify-center pa-4">
+                    <MudPagination Count="_totalPages"
+                                   Selected="_currentPage"
+                                   SelectedChanged="OnPageChanged"
+                                   Color="Color.Primary"
+                                   ShowFirstButton="true"
+                                   ShowLastButton="true" />
+                </div>
+            </PagerContent>
+        </MudTable>
+
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-2" Align="Align.Center">
+            Showing @((_currentPage - 1) * PageSize + 1)-@(Math.Min(_currentPage * PageSize, _totalCount)) of @_totalCount entries
+        </MudText>
+    }
+</MudContainer>
+
+@code {
+    private const int PageSize = 20;
+
+    private List<LessonHistory>? _history;
+    private bool _loading = true;
+    private int _currentPage = 1;
+    private int _totalCount;
+    private int _totalPages;
+    private string? _userId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        _userId = authState.User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (!string.IsNullOrEmpty(_userId))
+        {
+            await LoadHistory();
+        }
+        else
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task LoadHistory()
+    {
+        _loading = true;
+
+        try
+        {
+            _totalCount = await LessonService.GetUserHistoryCountAsync(_userId!);
+            _totalPages = (int)Math.Ceiling((double)_totalCount / PageSize);
+            _history = await LessonService.GetUserHistoryAsync(_userId!, _currentPage, PageSize);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading viewing history for user {UserId}", _userId);
+            _history = [];
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task OnPageChanged(int page)
+    {
+        _currentPage = page;
+        await LoadHistory();
+    }
+}

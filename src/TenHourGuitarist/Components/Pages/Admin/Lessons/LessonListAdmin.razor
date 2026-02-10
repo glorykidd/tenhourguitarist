@@ -1,0 +1,141 @@
+@page "/admin/lessons"
+@layout AdminLayout
+@attribute [Authorize(Policy = "InstructorOrAdmin")]
+
+@inject ILessonService LessonService
+@inject ICourseService CourseService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+
+<PageTitle>Manage Lessons</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+    <MudText Typo="Typo.h4">Lessons</MudText>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Add"
+               Href="/admin/lessons/new">
+        Add Lesson
+    </MudButton>
+</MudStack>
+
+<MudSelect T="int?" Value="_selectedCourseId" Label="Filter by Course" Class="mb-4"
+           Clearable="true" Style="max-width: 400px;"
+           ValueChanged="OnCourseFilterChanged">
+    @foreach (var course in _courses)
+    {
+        <MudSelectItem Value="@course.Id">@course.Name</MudSelectItem>
+    }
+</MudSelect>
+
+@if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else
+{
+    <MudDataGrid Items="@_filteredLessons" Dense="true" Striped="true" Hover="true" Filterable="true" SortMode="SortMode.Multiple">
+        <Columns>
+            <PropertyColumn Property="x => x.Name" Title="Name" />
+            <TemplateColumn Title="Course">
+                <CellTemplate>
+                    <MudText>@context.Item.Course?.Name</MudText>
+                </CellTemplate>
+            </TemplateColumn>
+            <PropertyColumn Property="x => x.DurationMinutes" Title="Duration (min)" />
+            <PropertyColumn Property="x => x.DisplayOrder" Title="Order" />
+            <TemplateColumn Title="Actions" Sortable="false" Filterable="false">
+                <CellTemplate>
+                    <MudStack Row="true" Spacing="1">
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                       Color="Color.Primary"
+                                       Href="@($"/admin/lessons/{context.Item.Id}")" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                                       Color="Color.Error"
+                                       OnClick="@(() => DeleteLesson(context.Item))" />
+                    </MudStack>
+                </CellTemplate>
+            </TemplateColumn>
+        </Columns>
+        <PagerContent>
+            <MudDataGridPager T="Lesson" />
+        </PagerContent>
+    </MudDataGrid>
+}
+
+@code {
+    private bool _loading = true;
+    private int? _selectedCourseId;
+    private List<Course> _courses = [];
+    private List<Lesson> _allLessons = [];
+    private List<Lesson> _filteredLessons = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _loading = true;
+        try
+        {
+            _courses = await CourseService.GetAllAsync(publishedOnly: false);
+            _allLessons = [];
+            foreach (var course in _courses)
+            {
+                var lessons = await LessonService.GetByCourseIdAsync(course.Id);
+                _allLessons.AddRange(lessons);
+            }
+            ApplyFilter();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to load lessons: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void OnCourseFilterChanged(int? courseId)
+    {
+        _selectedCourseId = courseId;
+        ApplyFilter();
+    }
+
+    private void ApplyFilter()
+    {
+        _filteredLessons = _selectedCourseId.HasValue && _selectedCourseId.Value > 0
+            ? _allLessons.Where(l => l.CourseId == _selectedCourseId.Value).ToList()
+            : _allLessons;
+    }
+
+    private async Task DeleteLesson(Lesson lesson)
+    {
+        var parameters = new DialogParameters<ConfirmDialog>
+        {
+            { x => x.ContentText, $"Are you sure you want to delete \"{lesson.Name}\"?" },
+            { x => x.ButtonText, "Delete" },
+            { x => x.ButtonColor, Color.Error }
+        };
+
+        var dialog = await DialogService.ShowAsync<ConfirmDialog>("Delete Lesson", parameters);
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled)
+        {
+            try
+            {
+                await LessonService.DeleteAsync(lesson.Id);
+                Snackbar.Add("Lesson deleted successfully.", Severity.Success);
+                await LoadDataAsync();
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Failed to delete lesson: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+}

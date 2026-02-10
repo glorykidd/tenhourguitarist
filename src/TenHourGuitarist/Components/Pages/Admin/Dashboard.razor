@@ -1,0 +1,131 @@
+@page "/admin"
+@layout AdminLayout
+@attribute [Authorize(Policy = "AdminOnly")]
+
+@inject IAnalyticsService AnalyticsService
+@inject ISnackbar Snackbar
+
+<PageTitle>Admin Dashboard</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Dashboard</MudText>
+
+@if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else
+{
+    <MudGrid>
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                    <div>
+                        <MudText Typo="Typo.subtitle2" Color="Color.Dark">Total Users</MudText>
+                        <MudText Typo="Typo.h4">@_totalUsers</MudText>
+                    </div>
+                    <MudIcon Icon="@Icons.Material.Filled.People" Color="Color.Primary" Size="Size.Large" />
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                    <div>
+                        <MudText Typo="Typo.subtitle2" Color="Color.Dark">Total Subscribers</MudText>
+                        <MudText Typo="Typo.h4">@_totalSubscribers</MudText>
+                    </div>
+                    <MudIcon Icon="@Icons.Material.Filled.CardMembership" Color="Color.Secondary" Size="Size.Large" />
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                    <div>
+                        <MudText Typo="Typo.subtitle2" Color="Color.Dark">Total Courses</MudText>
+                        <MudText Typo="Typo.h4">@_totalCourses</MudText>
+                    </div>
+                    <MudIcon Icon="@Icons.Material.Filled.School" Color="Color.Info" Size="Size.Large" />
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                    <div>
+                        <MudText Typo="Typo.subtitle2" Color="Color.Dark">Total Revenue</MudText>
+                        <MudText Typo="Typo.h4">@_totalRevenue.ToString("C")</MudText>
+                    </div>
+                    <MudIcon Icon="@Icons.Material.Filled.AttachMoney" Color="Color.Success" Size="Size.Large" />
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <MudPaper Class="pa-4 mt-6" Elevation="2">
+        <MudText Typo="Typo.h6" Class="mb-4">Visitor History (Last 30 Days)</MudText>
+        @if (_visitDates.Length > 0)
+        {
+            <MudChart ChartType="ChartType.Line"
+                      ChartSeries="@_visitSeries"
+                      XAxisLabels="@_visitDates"
+                      Width="100%"
+                      Height="350px" />
+        }
+        else
+        {
+            <MudText>No visitor data available.</MudText>
+        }
+    </MudPaper>
+}
+
+@code {
+    private bool _loading = true;
+    private int _totalUsers;
+    private int _totalSubscribers;
+    private int _totalCourses;
+    private decimal _totalRevenue;
+    private string[] _visitDates = [];
+    private List<ChartSeries> _visitSeries = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var usersTask = AnalyticsService.GetTotalUsersAsync();
+            var subscribersTask = AnalyticsService.GetTotalSubscribersAsync();
+            var coursesTask = AnalyticsService.GetTotalCoursesAsync();
+            var revenueTask = AnalyticsService.GetTotalRevenueAsync();
+            var visitsTask = AnalyticsService.GetVisitHistoryAsync(30);
+
+            await Task.WhenAll(usersTask, subscribersTask, coursesTask, revenueTask, visitsTask);
+
+            _totalUsers = usersTask.Result;
+            _totalSubscribers = subscribersTask.Result;
+            _totalCourses = coursesTask.Result;
+            _totalRevenue = revenueTask.Result;
+
+            var visits = visitsTask.Result;
+            _visitDates = visits.Select(v => v.Date.ToString("MM/dd")).ToArray();
+            _visitSeries =
+            [
+                new ChartSeries
+                {
+                    Name = "Visitors",
+                    Data = visits.Select(v => (double)v.Count).ToArray()
+                }
+            ];
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to load dashboard data: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

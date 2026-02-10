@@ -1,0 +1,181 @@
+@page "/admin/blog/new"
+@page "/admin/blog/{Id:int}"
+@layout AdminLayout
+@attribute [Authorize(Policy = "AdminOnly")]
+
+@inject IBlogService BlogService
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+
+@using System.Text.RegularExpressions
+
+<PageTitle>@(_isEdit ? "Edit Blog Post" : "Add Blog Post")</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">@(_isEdit ? "Edit Blog Post" : "Add Blog Post")</MudText>
+
+@if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else
+{
+    <MudPaper Class="pa-4" Elevation="2">
+        <MudForm @ref="_form" @bind-IsValid="_formValid">
+            <MudGrid>
+                <MudItem xs="12" md="8">
+                    <MudTextField @bind-Value="_post.Title" Label="Title" Required="true"
+                                  RequiredError="Title is required"
+                                  Immediate="true"
+                                  TextChanged="OnTitleChanged" />
+                </MudItem>
+
+                <MudItem xs="12" md="4">
+                    <MudTextField @bind-Value="_post.Slug" Label="Slug" Required="true"
+                                  RequiredError="Slug is required"
+                                  HelperText="Auto-generated from title" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudText Typo="Typo.subtitle2" Class="mb-2">Content</MudText>
+                    <RichTextEditor @bind-Value="_post.Content" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudSelect @bind-Value="_post.CategoryId" Label="Category" Clearable="true">
+                        @foreach (var category in _categories)
+                        {
+                            <MudSelectItem Value="@((int?)category.Id)">@category.Title</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudDatePicker @bind-Date="_publishedDate" Label="Published Date"
+                                   Placeholder="Select date" Clearable="true" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudSwitch @bind-Value="_post.IsPublished" Label="Published" Color="Color.Success" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <ImageUpload CurrentImagePath="@_post.FeaturedImagePath"
+                                 Subfolder="blog"
+                                 OnUploaded="OnFeaturedImageUploaded" />
+                </MudItem>
+
+                <MudItem xs="12" Class="d-flex gap-2">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                               OnClick="SaveAsync" Disabled="@(!_formValid || _saving)">
+                        @if (_saving)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        }
+                        @(_isEdit ? "Update Post" : "Create Post")
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined" Href="/admin/blog">Cancel</MudButton>
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+    </MudPaper>
+}
+
+@code {
+    [Parameter] public int? Id { get; set; }
+
+    private MudForm _form = null!;
+    private bool _formValid;
+    private bool _loading = true;
+    private bool _saving;
+    private bool _isEdit;
+    private BlogPost _post = new();
+    private List<BlogCategory> _categories = [];
+    private DateTime? _publishedDate;
+    private string _currentUserId = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isEdit = Id.HasValue;
+
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        _currentUserId = authState.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+
+        _categories = await BlogService.GetCategoriesAsync();
+
+        if (_isEdit)
+        {
+            var post = await BlogService.GetByIdAsync(Id!.Value);
+            if (post is null)
+            {
+                Snackbar.Add("Blog post not found.", Severity.Error);
+                Navigation.NavigateTo("/admin/blog");
+                return;
+            }
+            _post = post;
+            _publishedDate = post.PublishedDate;
+        }
+        else
+        {
+            _post.AuthorId = _currentUserId;
+        }
+
+        _loading = false;
+    }
+
+    private void OnTitleChanged(string title)
+    {
+        if (!_isEdit || string.IsNullOrEmpty(_post.Slug))
+        {
+            _post.Slug = GenerateSlug(title);
+        }
+    }
+
+    private static string GenerateSlug(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return string.Empty;
+        var slug = text.ToLowerInvariant();
+        slug = Regex.Replace(slug, @"[^a-z0-9\s-]", "");
+        slug = Regex.Replace(slug, @"\s+", "-");
+        slug = Regex.Replace(slug, @"-+", "-");
+        return slug.Trim('-');
+    }
+
+    private void OnFeaturedImageUploaded(string path)
+    {
+        _post.FeaturedImagePath = path;
+    }
+
+    private async Task SaveAsync()
+    {
+        await _form.Validate();
+        if (!_formValid) return;
+
+        _saving = true;
+        try
+        {
+            _post.PublishedDate = _publishedDate;
+
+            if (_isEdit)
+            {
+                await BlogService.UpdateAsync(_post);
+                Snackbar.Add("Blog post updated successfully.", Severity.Success);
+            }
+            else
+            {
+                _post.AuthorId = _currentUserId;
+                await BlogService.CreateAsync(_post);
+                Snackbar.Add("Blog post created successfully.", Severity.Success);
+            }
+            Navigation.NavigateTo("/admin/blog");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to save blog post: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

@@ -1,0 +1,133 @@
+@page "/courses"
+@inject ICourseService CourseService
+
+<PageTitle>Courses - TenHourGuitarist</PageTitle>
+
+<section class="bg-dark text-white py-5">
+    <div class="container text-center">
+        <h1 class="display-5 fw-bold">Guitar Courses</h1>
+        <p class="lead mt-3">Browse our library of structured guitar courses for every skill level.</p>
+    </div>
+</section>
+
+<section class="container py-5">
+    <!-- Search and filter controls -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-8">
+            <MudTextField @bind-Value="_searchQuery"
+                          Placeholder="Search courses..."
+                          Variant="Variant.Outlined"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search"
+                          Immediate="false"
+                          OnKeyDown="HandleSearchKeyDown"
+                          Class="mb-0" />
+        </div>
+        <div class="col-md-4">
+            <MudSelect T="CourseLevel?" Value="_selectedLevel"
+                       Placeholder="All Levels"
+                       Variant="Variant.Outlined"
+                       Clearable="true"
+                       ValueChanged="OnLevelChanged">
+                <MudSelectItem T="CourseLevel?" Value="@((CourseLevel?)CourseLevel.Beginner)">Beginner</MudSelectItem>
+                <MudSelectItem T="CourseLevel?" Value="@((CourseLevel?)CourseLevel.Intermediate)">Intermediate</MudSelectItem>
+                <MudSelectItem T="CourseLevel?" Value="@((CourseLevel?)CourseLevel.Advanced)">Advanced</MudSelectItem>
+            </MudSelect>
+        </div>
+    </div>
+
+    @if (_loading)
+    {
+        <LoadingSpinner />
+    }
+    else if (!_courses.Any())
+    {
+        <div class="text-center py-5">
+            <MudIcon Icon="@Icons.Material.Filled.SearchOff" Size="Size.Large" Class="mb-3 text-muted" />
+            <MudText Typo="Typo.h6" Class="text-muted">No courses found matching your criteria.</MudText>
+            <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="ClearFilters" Class="mt-2">
+                Clear Filters
+            </MudButton>
+        </div>
+    }
+    else
+    {
+        <div class="row g-4">
+        @foreach (var course in _courses)
+        {
+            <div class="col-md-4">
+                <CourseCard Course="course" />
+            </div>
+        }
+        </div>
+
+        @if (_totalPages > 1)
+        {
+            <div class="d-flex justify-content-center mt-5">
+                <MudPagination Count="_totalPages"
+                               Selected="_currentPage"
+                               SelectedChanged="OnPageChanged"
+                               Color="Color.Primary"
+                               ShowFirstButton="true"
+                               ShowLastButton="true" />
+            </div>
+        }
+    }
+</section>
+
+@code {
+    private List<Course> _courses = [];
+    private bool _loading = true;
+    private string? _searchQuery;
+    private CourseLevel? _selectedLevel;
+    private int _currentPage = 1;
+    private int _totalPages = 1;
+    private const int PageSize = 12;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCoursesAsync();
+    }
+
+    private async Task LoadCoursesAsync()
+    {
+        _loading = true;
+
+        var totalCount = await CourseService.GetTotalCountAsync(_searchQuery, _selectedLevel);
+        _totalPages = (int)Math.Ceiling((double)totalCount / PageSize);
+        if (_totalPages < 1) _totalPages = 1;
+
+        _courses = await CourseService.SearchAsync(_searchQuery, _selectedLevel, _currentPage, PageSize);
+        _loading = false;
+    }
+
+    private async Task HandleSearchKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            _currentPage = 1;
+            await LoadCoursesAsync();
+        }
+    }
+
+    private async Task OnLevelChanged(CourseLevel? level)
+    {
+        _selectedLevel = level;
+        _currentPage = 1;
+        await LoadCoursesAsync();
+    }
+
+    private async Task OnPageChanged(int page)
+    {
+        _currentPage = page;
+        await LoadCoursesAsync();
+    }
+
+    private async Task ClearFilters()
+    {
+        _searchQuery = null;
+        _selectedLevel = null;
+        _currentPage = 1;
+        await LoadCoursesAsync();
+    }
+}

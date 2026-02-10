@@ -1,0 +1,107 @@
+@page "/admin/subjects/new"
+@page "/admin/subjects/{Id:int}"
+@layout AdminLayout
+@attribute [Authorize(Policy = "AdminOnly")]
+
+@inject ISubjectService SubjectService
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+
+<PageTitle>@(_isEdit ? "Edit Subject" : "Add Subject")</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">@(_isEdit ? "Edit Subject" : "Add Subject")</MudText>
+
+@if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else
+{
+    <MudPaper Class="pa-4" Elevation="2">
+        <MudForm @ref="_form" @bind-IsValid="_formValid">
+            <MudGrid>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_subject.Name" Label="Name" Required="true"
+                                  RequiredError="Name is required" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_subject.Description" Label="Description"
+                                  Lines="3" />
+                </MudItem>
+
+                <MudItem xs="12" Class="d-flex gap-2">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                               OnClick="SaveAsync" Disabled="@(!_formValid || _saving)">
+                        @if (_saving)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        }
+                        @(_isEdit ? "Update Subject" : "Create Subject")
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined" Href="/admin/subjects">Cancel</MudButton>
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+    </MudPaper>
+}
+
+@code {
+    [Parameter] public int? Id { get; set; }
+
+    private MudForm _form = null!;
+    private bool _formValid;
+    private bool _loading = true;
+    private bool _saving;
+    private bool _isEdit;
+    private Subject _subject = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isEdit = Id.HasValue;
+
+        if (_isEdit)
+        {
+            var subject = await SubjectService.GetByIdAsync(Id!.Value);
+            if (subject is null)
+            {
+                Snackbar.Add("Subject not found.", Severity.Error);
+                Navigation.NavigateTo("/admin/subjects");
+                return;
+            }
+            _subject = subject;
+        }
+
+        _loading = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        await _form.Validate();
+        if (!_formValid) return;
+
+        _saving = true;
+        try
+        {
+            if (_isEdit)
+            {
+                await SubjectService.UpdateAsync(_subject);
+                Snackbar.Add("Subject updated successfully.", Severity.Success);
+            }
+            else
+            {
+                await SubjectService.CreateAsync(_subject);
+                Snackbar.Add("Subject created successfully.", Severity.Success);
+            }
+            Navigation.NavigateTo("/admin/subjects");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to save subject: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

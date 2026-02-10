@@ -1,0 +1,102 @@
+@page "/blog/{Slug}"
+@inject IBlogService BlogService
+
+<PageTitle>@(_post?.Title ?? "Blog Post") - TenHourGuitarist</PageTitle>
+
+@if (_loading)
+{
+    <LoadingSpinner Message="Loading post..." />
+}
+else if (_post is null)
+{
+    <section class="container py-5 text-center">
+        <MudIcon Icon="@Icons.Material.Filled.ErrorOutline" Size="Size.Large" Class="mb-3 text-muted" />
+        <MudText Typo="Typo.h5" Class="text-muted">Blog post not found.</MudText>
+        <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/blog" Class="mt-3">
+            Back to Blog
+        </MudButton>
+    </section>
+}
+else
+{
+    <!-- Featured image header -->
+    @if (!string.IsNullOrEmpty(_post.FeaturedImagePath))
+    {
+        <div class="position-relative" style="max-height: 400px; overflow: hidden;">
+            <img src="@_post.FeaturedImagePath"
+                 alt="@_post.Title"
+                 class="w-100"
+                 style="object-fit: cover; max-height: 400px;" />
+            <div class="position-absolute top-0 start-0 w-100 h-100" style="background: linear-gradient(transparent 50%, rgba(0,0,0,0.7));"></div>
+        </div>
+    }
+
+    <section class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <nav aria-label="breadcrumb" class="mb-3">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="/blog">Blog</a></li>
+                        @if (_post.Category is not null)
+                        {
+                            <li class="breadcrumb-item">@_post.Category.Title</li>
+                        }
+                        <li class="breadcrumb-item active" aria-current="page">@_post.Title</li>
+                    </ol>
+                </nav>
+
+                <h1 class="display-6 fw-bold mb-3">@_post.Title</h1>
+
+                <div class="d-flex align-items-center mb-4 text-muted">
+                    @if (_post.Author is not null)
+                    {
+                        <span class="me-3">
+                            <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" Class="me-1" />
+                            @_post.Author.DisplayName
+                        </span>
+                    }
+                    @if (_post.PublishedDate.HasValue)
+                    {
+                        <span class="me-3">
+                            <MudIcon Icon="@Icons.Material.Filled.CalendarToday" Size="Size.Small" Class="me-1" />
+                            @_post.PublishedDate.Value.ToString("MMMM d, yyyy")
+                        </span>
+                    }
+                    @if (_post.Category is not null)
+                    {
+                        <span class="badge bg-primary">@_post.Category.Title</span>
+                    }
+                </div>
+
+                <hr class="mb-4" />
+
+                <!-- Blog post content rendered as HTML -->
+                <article class="blog-content">
+                    @((MarkupString)(_post.Content ?? string.Empty))
+                </article>
+
+                <hr class="mt-5 mb-4" />
+
+                <div class="d-flex justify-content-between">
+                    <a href="/blog" class="btn btn-outline-secondary">
+                        <MudIcon Icon="@Icons.Material.Filled.ArrowBack" Size="Size.Small" Class="me-1" />
+                        Back to Blog
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+}
+
+@code {
+    [Parameter] public string Slug { get; set; } = string.Empty;
+
+    private Data.Entities.BlogPost? _post;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _post = await BlogService.GetBySlugAsync(Slug);
+        _loading = false;
+    }
+}

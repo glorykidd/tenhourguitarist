@@ -1,0 +1,98 @@
+@page "/admin/orders"
+@layout AdminLayout
+@attribute [Authorize(Policy = "AdminOnly")]
+
+@inject IOrderService OrderService
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+
+<PageTitle>Manage Orders</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Orders</MudText>
+
+@if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else
+{
+    <MudDataGrid Items="@_orders" Dense="true" Striped="true" Hover="true" Filterable="true"
+                 SortMode="SortMode.Multiple" RowClick="OnRowClick" T="Order" Style="cursor: pointer;">
+        <Columns>
+            <TemplateColumn Title="Order Ref">
+                <CellTemplate>
+                    <MudText>@context.Item.OrderRefId.ToString("N")[..8]...</MudText>
+                </CellTemplate>
+            </TemplateColumn>
+            <TemplateColumn Title="User">
+                <CellTemplate>
+                    <MudText>@context.Item.User?.Email</MudText>
+                </CellTemplate>
+            </TemplateColumn>
+            <TemplateColumn Title="Package">
+                <CellTemplate>
+                    <MudText>@context.Item.Package?.Title</MudText>
+                </CellTemplate>
+            </TemplateColumn>
+            <PropertyColumn Property="x => x.Amount" Title="Amount" Format="C" />
+            <TemplateColumn Title="Status">
+                <CellTemplate>
+                    <MudChip T="string" Color="@GetStatusColor(context.Item.PaymentStatus)" Size="Size.Small">
+                        @context.Item.PaymentStatus
+                    </MudChip>
+                </CellTemplate>
+            </TemplateColumn>
+            <TemplateColumn Title="Created">
+                <CellTemplate>
+                    <MudText>@context.Item.CreatedAt.ToString("MMM dd, yyyy HH:mm")</MudText>
+                </CellTemplate>
+            </TemplateColumn>
+            <TemplateColumn Title="Actions" Sortable="false" Filterable="false">
+                <CellTemplate>
+                    <MudIconButton Icon="@Icons.Material.Filled.Visibility" Size="Size.Small"
+                                   Color="Color.Primary"
+                                   Href="@($"/admin/orders/{context.Item.Id}")" />
+                </CellTemplate>
+            </TemplateColumn>
+        </Columns>
+        <PagerContent>
+            <MudDataGridPager T="Order" />
+        </PagerContent>
+    </MudDataGrid>
+}
+
+@code {
+    private bool _loading = true;
+    private List<Order> _orders = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _loading = true;
+        try
+        {
+            _orders = await OrderService.GetAllAsync(page: 1, pageSize: 1000);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to load orders: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void OnRowClick(DataGridRowClickEventArgs<Order> args)
+    {
+        Navigation.NavigateTo($"/admin/orders/{args.Item.Id}");
+    }
+
+    private static Color GetStatusColor(PaymentStatus status) => status switch
+    {
+        PaymentStatus.Success => Color.Success,
+        PaymentStatus.Pending => Color.Warning,
+        PaymentStatus.Failed => Color.Error,
+        PaymentStatus.Cancelled => Color.Default,
+        _ => Color.Default
+    };
+}

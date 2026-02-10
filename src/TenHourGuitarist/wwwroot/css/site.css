@@ -1,0 +1,78 @@
+/* TenHourGuitarist Custom Styles */
+
+:root {
+    --thg-primary: #1a73e8;
+    --thg-dark: #1a1a2e;
+    --thg-accent: #e94560;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+}
+
+/* Hero sections */
+.hero-section {
+    background: linear-gradient(135deg, var(--thg-dark) 0%, #16213e 100%);
+    color: white;
+    padding: 4rem 0;
+}
+
+/* Course cards */
+.course-card {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+.course-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+/* Blog post content */
+.blog-content img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+}
+
+/* Pricing cards */
+.pricing-card {
+    border: 2px solid transparent;
+    transition: border-color 0.2s;
+}
+.pricing-card:hover {
+    border-color: var(--thg-primary);
+}
+.pricing-card.featured {
+    border-color: var(--thg-accent);
+}
+
+/* Footer */
+footer a:hover {
+    color: white !important;
+}
+
+/* Blazor error UI */
+#blazor-error-ui {
+    background: lightyellow;
+    bottom: 0;
+    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
+    display: none;
+    left: 0;
+    padding: 0.6rem 1.25rem 0.7rem 1.25rem;
+    position: fixed;
+    width: 100%;
+    z-index: 1000;
+}
+#blazor-error-ui .dismiss {
+    cursor: pointer;
+    position: absolute;
+    right: 0.75rem;
+    top: 0.5rem;
+}
+
+/* Page transitions */
+.page-loading {
+    min-height: 60vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}

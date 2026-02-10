@@ -1,0 +1,101 @@
+@page "/resources"
+@inject IFreeResourceService FreeResourceService
+
+<PageTitle>Resources - TenHourGuitarist</PageTitle>
+
+<section class="bg-dark text-white py-5">
+    <div class="container text-center">
+        <h1 class="display-5 fw-bold">Free Resources</h1>
+        <p class="lead mt-3">Helpful guides, references, and supplemental material for your guitar journey.</p>
+    </div>
+</section>
+
+<section class="container py-5">
+    @if (_loading)
+    {
+        <LoadingSpinner />
+    }
+    else if (!_resources.Any())
+    {
+        <div class="text-center py-5">
+            <MudIcon Icon="@Icons.Material.Filled.FolderOpen" Size="Size.Large" Class="mb-3 text-muted" />
+            <MudText Typo="Typo.h6" Class="text-muted">No resources available yet.</MudText>
+        </div>
+    }
+    else
+    {
+        <div class="row g-4">
+        @foreach (var resource in _resources)
+        {
+            <div class="col-md-4">
+                <MudCard Class="h-100" Elevation="2">
+                    @if (!string.IsNullOrEmpty(resource.CoverImagePath))
+                    {
+                        <MudCardMedia Image="@resource.CoverImagePath" Height="200" />
+                    }
+                    else
+                    {
+                        <MudCardMedia Image="/images/resource-placeholder.jpg" Height="200" />
+                    }
+                    <MudCardContent>
+                        <MudText Typo="Typo.h6">@resource.Name</MudText>
+                        <MudText Typo="Typo.body2" Class="mt-2 text-muted">
+                            @(resource.Description?.Length > 150 ? resource.Description[..150] + "..." : resource.Description)
+                        </MudText>
+                    </MudCardContent>
+                    <MudCardActions>
+                        <MudButton Variant="Variant.Text"
+                                   Color="Color.Primary"
+                                   Href="@($"/resources/{resource.Slug}")">
+                            View Resource
+                        </MudButton>
+                    </MudCardActions>
+                </MudCard>
+            </div>
+        }
+        </div>
+
+        @if (_totalPages > 1)
+        {
+            <div class="d-flex justify-content-center mt-5">
+                <MudPagination Count="_totalPages"
+                               Selected="_currentPage"
+                               SelectedChanged="OnPageChanged"
+                               Color="Color.Primary"
+                               ShowFirstButton="true"
+                               ShowLastButton="true" />
+            </div>
+        }
+    }
+</section>
+
+@code {
+    private List<FreeResource> _resources = [];
+    private bool _loading = true;
+    private int _currentPage = 1;
+    private int _totalPages = 1;
+    private const int PageSize = 12;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadResourcesAsync();
+    }
+
+    private async Task LoadResourcesAsync()
+    {
+        _loading = true;
+
+        var totalCount = await FreeResourceService.GetTotalCountAsync();
+        _totalPages = (int)Math.Ceiling((double)totalCount / PageSize);
+        if (_totalPages < 1) _totalPages = 1;
+
+        _resources = await FreeResourceService.GetAllAsync(page: _currentPage, pageSize: PageSize);
+        _loading = false;
+    }
+
+    private async Task OnPageChanged(int page)
+    {
+        _currentPage = page;
+        await LoadResourcesAsync();
+    }
+}

@@ -1,0 +1,107 @@
+@page "/account/verify-email"
+@using Microsoft.AspNetCore.Identity
+@inject UserManager<ApplicationUser> UserManager
+@inject ILogger<VerifyEmail> Logger
+
+<PageTitle>Verify Email - TenHourGuitarist</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="py-8">
+    <MudPaper Elevation="3" Class="pa-8">
+        <MudText Typo="Typo.h4" Align="Align.Center" Class="mb-6">Email Verification</MudText>
+
+        @if (_loading)
+        {
+            <LoadingSpinner Message="Verifying your email address..." />
+        }
+        else if (_success)
+        {
+            <MudAlert Severity="Severity.Success" Class="mb-4">
+                <MudText Typo="Typo.h6" Class="mb-2">Email Verified!</MudText>
+                <MudText>
+                    Your email address has been verified successfully. You can now sign in to your account.
+                </MudText>
+            </MudAlert>
+            <MudButton Href="/account/login"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       FullWidth="true"
+                       Size="Size.Large">
+                Go to Sign In
+            </MudButton>
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Error" Class="mb-4">
+                <MudText Typo="Typo.h6" Class="mb-2">Verification Failed</MudText>
+                <MudText>@_errorMessage</MudText>
+            </MudAlert>
+            <MudButton Href="/account/login"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       FullWidth="true"
+                       Size="Size.Large">
+                Go to Sign In
+            </MudButton>
+        }
+    </MudPaper>
+</MudContainer>
+
+@code {
+    [SupplyParameterFromQuery]
+    private string? UserId { get; set; }
+
+    [SupplyParameterFromQuery]
+    private string? Token { get; set; }
+
+    private bool _loading = true;
+    private bool _success;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(UserId) || string.IsNullOrWhiteSpace(Token))
+            {
+                _errorMessage = "Invalid verification link. The link may be incomplete or malformed.";
+                return;
+            }
+
+            var user = await UserManager.FindByIdAsync(UserId);
+            if (user is null)
+            {
+                _errorMessage = "Invalid verification link. The user account was not found.";
+                return;
+            }
+
+            if (await UserManager.IsEmailConfirmedAsync(user))
+            {
+                _success = true;
+                return;
+            }
+
+            var result = await UserManager.ConfirmEmailAsync(user, Token);
+
+            if (result.Succeeded)
+            {
+                Logger.LogInformation("Email verified for user {UserId}", UserId);
+                _success = true;
+            }
+            else
+            {
+                var errors = string.Join(" ", result.Errors.Select(e => e.Description));
+                Logger.LogWarning("Email verification failed for user {UserId}: {Errors}", UserId, errors);
+                _errorMessage = "The verification link is invalid or has expired. Please contact support if you need assistance.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error during email verification for user {UserId}", UserId);
+            _errorMessage = "An unexpected error occurred during verification. Please try again later.";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

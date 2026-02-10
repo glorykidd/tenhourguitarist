@@ -1,0 +1,24 @@
+@if (!string.IsNullOrEmpty(AudioUrl))
+{
+    <audio controls preload="metadata" class="w-100">
+        <source src="@AudioUrl" type="@GetMimeType()" />
+        Your browser does not support the audio element.
+    </audio>
+}
+
+@code {
+    [Parameter] public string? AudioUrl { get; set; }
+
+    private string GetMimeType()
+    {
+        if (string.IsNullOrEmpty(AudioUrl)) return "audio/mpeg";
+        var ext = Path.GetExtension(AudioUrl).ToLowerInvariant();
+        return ext switch
+        {
+            ".ogg" => "audio/ogg",
+            ".wav" => "audio/wav",
+            ".m4a" => "audio/mp4",
+            _ => "audio/mpeg"
+        };
+    }
+}

@@ -1,0 +1,122 @@
+@page "/admin/blog"
+@layout AdminLayout
+@attribute [Authorize(Policy = "AdminOnly")]
+
+@inject IBlogService BlogService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+
+<PageTitle>Manage Blog Posts</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+    <MudText Typo="Typo.h4">Blog Posts</MudText>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Add"
+               Href="/admin/blog/new">
+        Add Post
+    </MudButton>
+</MudStack>
+
+@if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else
+{
+    <MudDataGrid Items="@_posts" Dense="true" Striped="true" Hover="true" Filterable="true" SortMode="SortMode.Multiple">
+        <Columns>
+            <PropertyColumn Property="x => x.Title" Title="Title" />
+            <TemplateColumn Title="Category">
+                <CellTemplate>
+                    <MudText>@(context.Item.Category?.Title ?? "Uncategorized")</MudText>
+                </CellTemplate>
+            </TemplateColumn>
+            <TemplateColumn Title="Author">
+                <CellTemplate>
+                    <MudText>@context.Item.Author?.DisplayName</MudText>
+                </CellTemplate>
+            </TemplateColumn>
+            <TemplateColumn Title="Published Date">
+                <CellTemplate>
+                    <MudText>@(context.Item.PublishedDate?.ToString("MMM dd, yyyy") ?? "Draft")</MudText>
+                </CellTemplate>
+            </TemplateColumn>
+            <TemplateColumn Title="Published">
+                <CellTemplate>
+                    <MudIcon Icon="@(context.Item.IsPublished ? Icons.Material.Filled.Check : Icons.Material.Filled.Close)"
+                             Color="@(context.Item.IsPublished ? Color.Success : Color.Default)" />
+                </CellTemplate>
+            </TemplateColumn>
+            <TemplateColumn Title="Actions" Sortable="false" Filterable="false">
+                <CellTemplate>
+                    <MudStack Row="true" Spacing="1">
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                       Color="Color.Primary"
+                                       Href="@($"/admin/blog/{context.Item.Id}")" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                                       Color="Color.Error"
+                                       OnClick="@(() => DeletePost(context.Item))" />
+                    </MudStack>
+                </CellTemplate>
+            </TemplateColumn>
+        </Columns>
+        <PagerContent>
+            <MudDataGridPager T="BlogPost" />
+        </PagerContent>
+    </MudDataGrid>
+}
+
+@code {
+    private bool _loading = true;
+    private List<BlogPost> _posts = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPostsAsync();
+    }
+
+    private async Task LoadPostsAsync()
+    {
+        _loading = true;
+        try
+        {
+            _posts = await BlogService.GetAllAsync(publishedOnly: false, page: 1, pageSize: 1000);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to load blog posts: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task DeletePost(BlogPost post)
+    {
+        var parameters = new DialogParameters<ConfirmDialog>
+        {
+            { x => x.ContentText, $"Are you sure you want to delete \"{post.Title}\"?" },
+            { x => x.ButtonText, "Delete" },
+            { x => x.ButtonColor, Color.Error }
+        };
+
+        var dialog = await DialogService.ShowAsync<ConfirmDialog>("Delete Blog Post", parameters);
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled)
+        {
+            try
+            {
+                await BlogService.DeleteAsync(post.Id);
+                Snackbar.Add("Blog post deleted successfully.", Severity.Success);
+                await LoadPostsAsync();
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Failed to delete blog post: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+}

@@ -1,0 +1,152 @@
+@page "/admin/blog/categories/new"
+@page "/admin/blog/categories/{Id:int}"
+@layout AdminLayout
+@attribute [Authorize(Policy = "AdminOnly")]
+
+@inject IBlogService BlogService
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+
+@using System.Text.RegularExpressions
+
+<PageTitle>@(_isEdit ? "Edit Category" : "Add Category")</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">@(_isEdit ? "Edit Category" : "Add Category")</MudText>
+
+@if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else
+{
+    <MudPaper Class="pa-4" Elevation="2">
+        <MudForm @ref="_form" @bind-IsValid="_formValid">
+            <MudGrid>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_category.Title" Label="Title" Required="true"
+                                  RequiredError="Title is required"
+                                  Immediate="true"
+                                  TextChanged="OnTitleChanged" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_category.Slug" Label="Slug" Required="true"
+                                  RequiredError="Slug is required"
+                                  HelperText="Auto-generated from title" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_category.Description" Label="Description"
+                                  Lines="3" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudSelect @bind-Value="_category.ParentId" Label="Parent Category" Clearable="true">
+                        @foreach (var cat in _otherCategories)
+                        {
+                            <MudSelectItem Value="@((int?)cat.Id)">@cat.Title</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12" Class="d-flex gap-2">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                               OnClick="SaveAsync" Disabled="@(!_formValid || _saving)">
+                        @if (_saving)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        }
+                        @(_isEdit ? "Update Category" : "Create Category")
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined" Href="/admin/blog/categories">Cancel</MudButton>
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+    </MudPaper>
+}
+
+@code {
+    [Parameter] public int? Id { get; set; }
+
+    private MudForm _form = null!;
+    private bool _formValid;
+    private bool _loading = true;
+    private bool _saving;
+    private bool _isEdit;
+    private BlogCategory _category = new();
+    private List<BlogCategory> _otherCategories = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isEdit = Id.HasValue;
+
+        var allCategories = await BlogService.GetCategoriesAsync();
+
+        if (_isEdit)
+        {
+            var category = await BlogService.GetCategoryByIdAsync(Id!.Value);
+            if (category is null)
+            {
+                Snackbar.Add("Category not found.", Severity.Error);
+                Navigation.NavigateTo("/admin/blog/categories");
+                return;
+            }
+            _category = category;
+            _otherCategories = allCategories.Where(c => c.Id != Id.Value).ToList();
+        }
+        else
+        {
+            _otherCategories = allCategories;
+        }
+
+        _loading = false;
+    }
+
+    private void OnTitleChanged(string title)
+    {
+        if (!_isEdit || string.IsNullOrEmpty(_category.Slug))
+        {
+            _category.Slug = GenerateSlug(title);
+        }
+    }
+
+    private static string GenerateSlug(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return string.Empty;
+        var slug = text.ToLowerInvariant();
+        slug = Regex.Replace(slug, @"[^a-z0-9\s-]", "");
+        slug = Regex.Replace(slug, @"\s+", "-");
+        slug = Regex.Replace(slug, @"-+", "-");
+        return slug.Trim('-');
+    }
+
+    private async Task SaveAsync()
+    {
+        await _form.Validate();
+        if (!_formValid) return;
+
+        _saving = true;
+        try
+        {
+            if (_isEdit)
+            {
+                await BlogService.UpdateCategoryAsync(_category);
+                Snackbar.Add("Category updated successfully.", Severity.Success);
+            }
+            else
+            {
+                await BlogService.CreateCategoryAsync(_category);
+                Snackbar.Add("Category created successfully.", Severity.Success);
+            }
+            Navigation.NavigateTo("/admin/blog/categories");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to save category: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

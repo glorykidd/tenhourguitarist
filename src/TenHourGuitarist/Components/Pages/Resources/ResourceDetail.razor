@@ -1,0 +1,92 @@
+@page "/resources/{Slug}"
+@inject IFreeResourceService FreeResourceService
+
+<PageTitle>@(_resource?.Name ?? "Resource") - TenHourGuitarist</PageTitle>
+
+@if (_loading)
+{
+    <LoadingSpinner Message="Loading resource..." />
+}
+else if (_resource is null)
+{
+    <section class="container py-5 text-center">
+        <MudIcon Icon="@Icons.Material.Filled.ErrorOutline" Size="Size.Large" Class="mb-3 text-muted" />
+        <MudText Typo="Typo.h5" Class="text-muted">Resource not found.</MudText>
+        <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/resources" Class="mt-3">
+            Back to Resources
+        </MudButton>
+    </section>
+}
+else
+{
+    <section class="bg-dark text-white py-5">
+        <div class="container">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-2">
+                    <li class="breadcrumb-item"><a href="/resources" class="text-white-50">Resources</a></li>
+                    <li class="breadcrumb-item active text-white" aria-current="page">@_resource.Name</li>
+                </ol>
+            </nav>
+            <h1 class="display-5 fw-bold">@_resource.Name</h1>
+            @if (_resource.Author is not null)
+            {
+                <p class="text-white-50 mt-2">
+                    <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" Class="me-1" />
+                    By @_resource.Author.DisplayName
+                </p>
+            }
+        </div>
+    </section>
+
+    <section class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <!-- Cover image -->
+                @if (!string.IsNullOrEmpty(_resource.CoverImagePath))
+                {
+                    <div class="mb-4">
+                        <img src="@_resource.CoverImagePath"
+                             alt="@_resource.Name"
+                             class="img-fluid rounded shadow" />
+                    </div>
+                }
+
+                <!-- Video -->
+                @if (!string.IsNullOrEmpty(_resource.VideoUrl))
+                {
+                    <div class="mb-4">
+                        <h4 class="mb-3">Video</h4>
+                        <VimeoPlayer VideoUrl="@_resource.VideoUrl" />
+                    </div>
+                }
+
+                <!-- Description -->
+                @if (!string.IsNullOrEmpty(_resource.Description))
+                {
+                    <h4 class="mb-3">Description</h4>
+                    <p class="mb-4">@_resource.Description</p>
+                }
+
+                <hr class="mt-4 mb-4" />
+
+                <a href="/resources" class="btn btn-outline-secondary">
+                    <MudIcon Icon="@Icons.Material.Filled.ArrowBack" Size="Size.Small" Class="me-1" />
+                    Back to Resources
+                </a>
+            </div>
+        </div>
+    </section>
+}
+
+@code {
+    [Parameter] public string Slug { get; set; } = string.Empty;
+
+    private FreeResource? _resource;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _resource = await FreeResourceService.GetBySlugAsync(Slug);
+        _loading = false;
+    }
+}

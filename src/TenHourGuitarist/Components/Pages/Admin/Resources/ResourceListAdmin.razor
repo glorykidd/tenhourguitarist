@@ -1,0 +1,111 @@
+@page "/admin/resources"
+@layout AdminLayout
+@attribute [Authorize(Policy = "AdminOnly")]
+
+@inject IFreeResourceService ResourceService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+
+<PageTitle>Manage Free Resources</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+    <MudText Typo="Typo.h4">Free Resources</MudText>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Add"
+               Href="/admin/resources/new">
+        Add Resource
+    </MudButton>
+</MudStack>
+
+@if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else
+{
+    <MudDataGrid Items="@_resources" Dense="true" Striped="true" Hover="true" Filterable="true" SortMode="SortMode.Multiple">
+        <Columns>
+            <PropertyColumn Property="x => x.Name" Title="Name" />
+            <TemplateColumn Title="Author">
+                <CellTemplate>
+                    <MudText>@context.Item.Author?.DisplayName</MudText>
+                </CellTemplate>
+            </TemplateColumn>
+            <TemplateColumn Title="Created">
+                <CellTemplate>
+                    <MudText>@context.Item.CreatedAt.ToString("MMM dd, yyyy")</MudText>
+                </CellTemplate>
+            </TemplateColumn>
+            <TemplateColumn Title="Actions" Sortable="false" Filterable="false">
+                <CellTemplate>
+                    <MudStack Row="true" Spacing="1">
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                       Color="Color.Primary"
+                                       Href="@($"/admin/resources/{context.Item.Id}")" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                                       Color="Color.Error"
+                                       OnClick="@(() => DeleteResource(context.Item))" />
+                    </MudStack>
+                </CellTemplate>
+            </TemplateColumn>
+        </Columns>
+        <PagerContent>
+            <MudDataGridPager T="FreeResource" />
+        </PagerContent>
+    </MudDataGrid>
+}
+
+@code {
+    private bool _loading = true;
+    private List<FreeResource> _resources = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadResourcesAsync();
+    }
+
+    private async Task LoadResourcesAsync()
+    {
+        _loading = true;
+        try
+        {
+            _resources = await ResourceService.GetAllAsync(page: 1, pageSize: 1000);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to load resources: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task DeleteResource(FreeResource resource)
+    {
+        var parameters = new DialogParameters<ConfirmDialog>
+        {
+            { x => x.ContentText, $"Are you sure you want to delete \"{resource.Name}\"?" },
+            { x => x.ButtonText, "Delete" },
+            { x => x.ButtonColor, Color.Error }
+        };
+
+        var dialog = await DialogService.ShowAsync<ConfirmDialog>("Delete Resource", parameters);
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled)
+        {
+            try
+            {
+                await ResourceService.DeleteAsync(resource.Id);
+                Snackbar.Add("Resource deleted successfully.", Severity.Success);
+                await LoadResourcesAsync();
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Failed to delete resource: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+}

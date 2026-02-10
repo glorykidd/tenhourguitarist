@@ -1,0 +1,11 @@
+<div class="d-flex justify-content-center align-items-center py-5">
+    <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+    @if (!string.IsNullOrEmpty(Message))
+    {
+        <MudText Class="ms-3">@Message</MudText>
+    }
+</div>
+
+@code {
+    [Parameter] public string? Message { get; set; } = "Loading...";
+}

@@ -1,0 +1,42 @@
+@page "/account/logout"
+@using Microsoft.AspNetCore.Identity
+@inject SignInManager<ApplicationUser> SignInManager
+@inject NavigationManager Navigation
+@inject ILogger<Logout> Logger
+
+<PageTitle>Signing Out - TenHourGuitarist</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="py-8">
+    <MudPaper Elevation="3" Class="pa-8">
+        <div class="d-flex flex-column align-center">
+            <MudProgressCircular Indeterminate="true" Color="Color.Primary" Class="mb-4" />
+            <MudText Typo="Typo.h5" Class="mb-2">Signing Out...</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                Please wait while we sign you out.
+            </MudText>
+        </div>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            if (HttpContext is not null)
+            {
+                await SignInManager.SignOutAsync();
+                Logger.LogInformation("User signed out");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error during sign-out");
+        }
+
+        Navigation.NavigateTo("/", forceLoad: true);
+    }
+}

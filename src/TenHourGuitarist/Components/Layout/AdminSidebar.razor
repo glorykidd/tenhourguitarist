@@ -1,0 +1,57 @@
+<MudNavMenu>
+    <MudNavLink Href="/admin" Icon="@Icons.Material.Filled.Dashboard" Match="NavLinkMatch.All">
+        Dashboard
+    </MudNavLink>
+
+    <AuthorizeView Roles="Admin,Instructor">
+        <MudNavGroup Title="Courses" Icon="@Icons.Material.Filled.School" Expanded="false">
+            <MudNavLink Href="/admin/courses">All Courses</MudNavLink>
+            <MudNavLink Href="/admin/courses/new">Add Course</MudNavLink>
+        </MudNavGroup>
+
+        <MudNavGroup Title="Lessons" Icon="@Icons.Material.Filled.PlayLesson" Expanded="false">
+            <MudNavLink Href="/admin/lessons">All Lessons</MudNavLink>
+            <MudNavLink Href="/admin/lessons/new">Add Lesson</MudNavLink>
+        </MudNavGroup>
+    </AuthorizeView>
+
+    <AuthorizeView Roles="Admin">
+        <MudNavGroup Title="Blog" Icon="@Icons.Material.Filled.Article" Expanded="false">
+            <MudNavLink Href="/admin/blog">All Posts</MudNavLink>
+            <MudNavLink Href="/admin/blog/new">Add Post</MudNavLink>
+            <MudNavLink Href="/admin/blog/categories">Categories</MudNavLink>
+        </MudNavGroup>
+
+        <MudNavGroup Title="Podcasts" Icon="@Icons.Material.Filled.Podcasts" Expanded="false">
+            <MudNavLink Href="/admin/podcasts">All Podcasts</MudNavLink>
+            <MudNavLink Href="/admin/podcasts/new">Add Podcast</MudNavLink>
+        </MudNavGroup>
+
+        <MudNavGroup Title="Resources" Icon="@Icons.Material.Filled.LibraryBooks" Expanded="false">
+            <MudNavLink Href="/admin/resources">All Resources</MudNavLink>
+            <MudNavLink Href="/admin/resources/new">Add Resource</MudNavLink>
+        </MudNavGroup>
+
+        <MudNavGroup Title="Packages" Icon="@Icons.Material.Filled.Inventory" Expanded="false">
+            <MudNavLink Href="/admin/packages">All Packages</MudNavLink>
+            <MudNavLink Href="/admin/packages/new">Add Package</MudNavLink>
+        </MudNavGroup>
+
+        <MudNavLink Href="/admin/orders" Icon="@Icons.Material.Filled.Receipt">
+            Orders
+        </MudNavLink>
+
+        <MudNavLink Href="/admin/subjects" Icon="@Icons.Material.Filled.Category">
+            Subjects
+        </MudNavLink>
+
+        <MudNavGroup Title="Users" Icon="@Icons.Material.Filled.People" Expanded="false">
+            <MudNavLink Href="/admin/users">All Users</MudNavLink>
+            <MudNavLink Href="/admin/instructors">Instructors</MudNavLink>
+        </MudNavGroup>
+
+        <MudNavLink Href="/admin/account" Icon="@Icons.Material.Filled.Settings">
+            Account Settings
+        </MudNavLink>
+    </AuthorizeView>
+</MudNavMenu>

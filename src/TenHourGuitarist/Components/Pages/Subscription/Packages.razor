@@ -1,0 +1,158 @@
+@page "/subscribe/packages"
+@inject IPackageService PackageService
+@inject IStripeService StripeService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Navigation
+
+<PageTitle>Subscribe - TenHourGuitarist</PageTitle>
+
+<section class="bg-dark text-white py-5">
+    <div class="container text-center">
+        <h1 class="display-5 fw-bold">Choose Your Plan</h1>
+        <p class="lead mt-3">Get full access to all courses and premium content with a subscription.</p>
+    </div>
+</section>
+
+<section class="container py-5">
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <StatusAlert Message="@_errorMessage" Severity="Severity.Error" />
+    }
+
+    @if (_loading)
+    {
+        <LoadingSpinner />
+    }
+    else if (!_packages.Any())
+    {
+        <div class="text-center py-5">
+            <MudIcon Icon="@Icons.Material.Filled.CardMembership" Size="Size.Large" Class="mb-3 text-muted" />
+            <MudText Typo="Typo.h6" Class="text-muted">No subscription packages available at the moment.</MudText>
+        </div>
+    }
+    else
+    {
+        <div class="row g-4 justify-content-center">
+        @foreach (var package in _packages)
+        {
+            <div class="col-md-4">
+                <MudCard Class="h-100 text-center" Elevation="3">
+                    <MudCardContent>
+                        <MudText Typo="Typo.h5" Class="fw-bold mt-2">@package.Title</MudText>
+                        @if (!string.IsNullOrEmpty(package.Subtitle))
+                        {
+                            <MudText Typo="Typo.subtitle1" Class="text-muted">@package.Subtitle</MudText>
+                        }
+
+                        <div class="my-4">
+                            <span class="display-4 fw-bold">$@package.Amount.ToString("0.##")</span>
+                            <span class="text-muted">
+                                / @FormatDuration(package.DurationCount, package.DurationUnit)
+                            </span>
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(package.Features))
+                        {
+                            <ul class="list-unstyled mb-4">
+                                @foreach (var feature in package.Features.Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                                {
+                                    <li class="py-1">
+                                        <MudIcon Icon="@Icons.Material.Filled.Check" Color="Color.Success" Size="Size.Small" Class="me-1" />
+                                        @feature
+                                    </li>
+                                }
+                            </ul>
+                        }
+
+                        @if (!string.IsNullOrEmpty(package.Description))
+                        {
+                            <MudText Typo="Typo.body2" Class="text-muted mb-3">@package.Description</MudText>
+                        }
+                    </MudCardContent>
+                    <MudCardActions Class="justify-content-center pb-4">
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   Size="Size.Large"
+                                   Disabled="_processingPackageId == package.Id"
+                                   OnClick="@(() => HandleSubscribe(package))">
+                            @if (_processingPackageId == package.Id)
+                            {
+                                <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="me-2" />
+                                <span>Processing...</span>
+                            }
+                            else
+                            {
+                                <span>Subscribe</span>
+                            }
+                        </MudButton>
+                    </MudCardActions>
+                </MudCard>
+            </div>
+        }
+        </div>
+    }
+</section>
+
+@code {
+    private List<Package> _packages = [];
+    private bool _loading = true;
+    private int? _processingPackageId;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _packages = await PackageService.GetAllAsync(activeOnly: true);
+        _loading = false;
+    }
+
+    private async Task HandleSubscribe(Package package)
+    {
+        _errorMessage = null;
+
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (!(user.Identity?.IsAuthenticated ?? false))
+        {
+            var returnUrl = Uri.EscapeDataString($"/subscribe/packages");
+            Navigation.NavigateTo($"/account/login?returnUrl={returnUrl}", forceLoad: true);
+            return;
+        }
+
+        var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId))
+        {
+            _errorMessage = "Unable to determine user identity. Please log in again.";
+            return;
+        }
+
+        _processingPackageId = package.Id;
+
+        try
+        {
+            var baseUri = Navigation.BaseUri.TrimEnd('/');
+            var successUrl = $"{baseUri}/subscribe/success";
+            var cancelUrl = $"{baseUri}/subscribe/cancel";
+
+            var checkoutUrl = await StripeService.CreateCheckoutSessionAsync(userId, package.Id, successUrl, cancelUrl);
+            Navigation.NavigateTo(checkoutUrl, forceLoad: true);
+        }
+        catch (Exception)
+        {
+            _errorMessage = "An error occurred while setting up payment. Please try again.";
+            _processingPackageId = null;
+        }
+    }
+
+    private static string FormatDuration(int count, DurationUnit unit)
+    {
+        var unitStr = unit switch
+        {
+            DurationUnit.Month => count == 1 ? "month" : "months",
+            DurationUnit.Year => count == 1 ? "year" : "years",
+            _ => unit.ToString().ToLower()
+        };
+
+        return count == 1 ? unitStr : $"{count} {unitStr}";
+    }
+}

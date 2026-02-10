@@ -1,0 +1,76 @@
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top">
+    <div class="container">
+        <a class="navbar-brand fw-bold" href="/">TenHourGuitarist</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="mainNav">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <li class="nav-item">
+                    <NavLink class="nav-link" href="/" Match="NavLinkMatch.All">Home</NavLink>
+                </li>
+                <li class="nav-item">
+                    <NavLink class="nav-link" href="/courses">Courses</NavLink>
+                </li>
+                <li class="nav-item">
+                    <NavLink class="nav-link" href="/free-lessons">Free Lessons</NavLink>
+                </li>
+                <li class="nav-item">
+                    <NavLink class="nav-link" href="/blog">Blog</NavLink>
+                </li>
+                <li class="nav-item">
+                    <NavLink class="nav-link" href="/podcasts">Podcasts</NavLink>
+                </li>
+                <li class="nav-item">
+                    <NavLink class="nav-link" href="/resources">Resources</NavLink>
+                </li>
+                <li class="nav-item">
+                    <NavLink class="nav-link" href="/about">About</NavLink>
+                </li>
+                <li class="nav-item">
+                    <NavLink class="nav-link" href="/contact">Contact</NavLink>
+                </li>
+            </ul>
+
+            <ul class="navbar-nav">
+                <AuthorizeView>
+                    <Authorized Context="authContext">
+                        <AuthorizeView Roles="Admin,Instructor">
+                            <li class="nav-item">
+                                <NavLink class="nav-link" href="/admin">Dashboard</NavLink>
+                            </li>
+                        </AuthorizeView>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                                @authContext.User.Identity?.Name
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="/account/profile">Profile</a></li>
+                                <li><a class="dropdown-item" href="/account/history">Viewing History</a></li>
+                                <li><a class="dropdown-item" href="/account/purchases">Purchases</a></li>
+                                <li><hr class="dropdown-divider" /></li>
+                                <li>
+                                    <form method="post" action="/account/logout">
+                                        <button type="submit" class="dropdown-item">Logout</button>
+                                    </form>
+                                </li>
+                            </ul>
+                        </li>
+                    </Authorized>
+                    <NotAuthorized>
+                        <li class="nav-item">
+                            <NavLink class="nav-link" href="/account/login">Login</NavLink>
+                        </li>
+                        <li class="nav-item">
+                            <NavLink class="nav-link btn btn-outline-light btn-sm ms-2 px-3" href="/account/register">Sign Up</NavLink>
+                        </li>
+                    </NotAuthorized>
+                </AuthorizeView>
+            </ul>
+        </div>
+    </div>
+</nav>

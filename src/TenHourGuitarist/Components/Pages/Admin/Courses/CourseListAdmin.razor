@@ -1,0 +1,116 @@
+@page "/admin/courses"
+@layout AdminLayout
+@attribute [Authorize(Policy = "InstructorOrAdmin")]
+
+@inject ICourseService CourseService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+
+<PageTitle>Manage Courses</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+    <MudText Typo="Typo.h4">Courses</MudText>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Add"
+               Href="/admin/courses/new">
+        Add Course
+    </MudButton>
+</MudStack>
+
+@if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else
+{
+    <MudDataGrid Items="@_courses" Dense="true" Striped="true" Hover="true" Filterable="true" SortMode="SortMode.Multiple">
+        <Columns>
+            <PropertyColumn Property="x => x.Name" Title="Name" />
+            <PropertyColumn Property="x => x.Level" Title="Level" />
+            <PropertyColumn Property="x => x.Price" Title="Price" Format="C" />
+            <TemplateColumn Title="Free">
+                <CellTemplate>
+                    <MudIcon Icon="@(context.Item.IsFree ? Icons.Material.Filled.Check : Icons.Material.Filled.Close)"
+                             Color="@(context.Item.IsFree ? Color.Success : Color.Default)" />
+                </CellTemplate>
+            </TemplateColumn>
+            <TemplateColumn Title="Published">
+                <CellTemplate>
+                    <MudIcon Icon="@(context.Item.IsPublished ? Icons.Material.Filled.Check : Icons.Material.Filled.Close)"
+                             Color="@(context.Item.IsPublished ? Color.Success : Color.Default)" />
+                </CellTemplate>
+            </TemplateColumn>
+            <PropertyColumn Property="x => x.DisplayOrder" Title="Order" />
+            <TemplateColumn Title="Actions" Sortable="false" Filterable="false">
+                <CellTemplate>
+                    <MudStack Row="true" Spacing="1">
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                       Color="Color.Primary"
+                                       Href="@($"/admin/courses/{context.Item.Id}")" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                                       Color="Color.Error"
+                                       OnClick="@(() => DeleteCourse(context.Item))" />
+                    </MudStack>
+                </CellTemplate>
+            </TemplateColumn>
+        </Columns>
+        <PagerContent>
+            <MudDataGridPager T="Course" />
+        </PagerContent>
+    </MudDataGrid>
+}
+
+@code {
+    private bool _loading = true;
+    private List<Course> _courses = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCoursesAsync();
+    }
+
+    private async Task LoadCoursesAsync()
+    {
+        _loading = true;
+        try
+        {
+            _courses = await CourseService.GetAllAsync(publishedOnly: false);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to load courses: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task DeleteCourse(Course course)
+    {
+        var parameters = new DialogParameters<ConfirmDialog>
+        {
+            { x => x.ContentText, $"Are you sure you want to delete \"{course.Name}\"?" },
+            { x => x.ButtonText, "Delete" },
+            { x => x.ButtonColor, Color.Error }
+        };
+
+        var dialog = await DialogService.ShowAsync<ConfirmDialog>("Delete Course", parameters);
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled)
+        {
+            try
+            {
+                await CourseService.DeleteAsync(course.Id);
+                Snackbar.Add("Course deleted successfully.", Severity.Success);
+                await LoadCoursesAsync();
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Failed to delete course: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+}

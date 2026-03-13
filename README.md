@@ -16,14 +16,14 @@ This document describes the complete migration of TenHourGuitarist from ASP.NET 
 | UI Framework | Blazor Server (Interactive Server) | 10.0 |
 | Component Library | MudBlazor | 8.15.0 |
 | Public Site CSS | Bootstrap 5 (CDN) | 5.3 |
-| Database | SQL Server + EF Core | 10.0.2 |
+| Database | SQLite + EF Core | 10.0.2 |
 | Authentication | ASP.NET Identity | 10.0.2 |
 | Payments | Stripe (Checkout Sessions + Webhooks) | 50.3.0 |
 | Email | MailKit via AWS SES SMTP | 4.14.1 |
 | Rich Text Editor | TinyMCE.Blazor | 2.2.1 |
 | Image Processing | SixLabors.ImageSharp | 3.1.12 |
 | Logging | Serilog | 10.0.0 |
-| Hosting | Self-hosted IIS (Windows) | — |
+| Hosting | Self-hosted IIS (Windows) or cross-platform | — |
 
 ---
 
@@ -120,7 +120,7 @@ Package ──1:N──→ Order
 **ApplicationUser** — extends `IdentityUser`
 - `DisplayName` (string, required, max 100)
 - `ProfileImagePath` (string?, max 500)
-- `CreatedAt` (DateTime, default GETUTCDATE)
+- `CreatedAt` (DateTime, default datetime('now'))
 - `IsDeleted` (bool, default false)
 - Navigation: Courses, BlogPosts, Podcasts, FreeResources, LessonHistories, Subscriptions, Orders
 
@@ -170,7 +170,7 @@ Package ──1:N──→ Order
 - `StartDate`, `EndDate`
 
 **Order**
-- `Id`, `OrderRefId` (Guid, unique, default NEWID())
+- `Id`, `OrderRefId` (Guid, unique, auto-generated UUID)
 - `UserId` (FK, restrict), `PackageId` (FK, restrict)
 - `StripeSessionId`, `StripePaymentIntentId`
 - `PaymentStatus` (enum: Pending/Success/Failed/Cancelled)
@@ -186,8 +186,8 @@ Package ──1:N──→ Order
 
 Each entity has a dedicated `IEntityTypeConfiguration<T>` class in `Data/Configurations/`. All configurations are auto-discovered via `ApplyConfigurationsFromAssembly`. Key patterns:
 - Enums stored as strings (max 50 chars) for readability
-- `GETUTCDATE()` SQL defaults for timestamps
-- `NEWID()` SQL default for Order.OrderRefId
+- `datetime('now')` SQLite defaults for timestamps
+- SQLite `randomblob()` UUID generation for Order.OrderRefId
 - Unique indexes on all Slug fields
 - Restrict delete on all user FKs (prevent cascade through Identity tables)
 - Cascade delete only for Course → Lesson
@@ -462,7 +462,7 @@ Three GitHub Actions workflows using a self-hosted Windows runner:
 ```json
 {
   "ConnectionStrings": {
-    "DefaultConnection": "Server=.;Database=TenHourGuitarist;..."
+    "DefaultConnection": "Data Source=TenHourGuitarist.db"
   },
   "Serilog": { ... },
   "Stripe": {
@@ -479,46 +479,82 @@ Three GitHub Actions workflows using a self-hosted Windows runner:
 }
 ```
 
+The SQLite database file is created automatically in the project directory. No external database server is required.
+
 ### Environment-Specific Overrides
 
-- **Development**: LocalDB connection string, Debug logging, `https://localhost:7001` SiteUrl
-- **Production**: Warning-level logging only
+- **Development**: `TenHourGuitarist_Dev.db`, Debug logging, `https://localhost:5001` SiteUrl
+- **Production**: `TenHourGuitarist.db`, Warning-level logging only
 
 ---
 
-## Next Steps to Make Fully Functional
+## Getting Started
 
-### 1. Configure the Database Connection
+### Prerequisites
 
-Edit `appsettings.Development.json` (or `appsettings.json`) with your SQL Server connection string:
-
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Server=YOUR_SERVER;Database=TenHourGuitarist;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true"
-  }
-}
-```
-
-### 2. Install EF Core Tools and Create the Database
+- [.NET 10 SDK](https://dotnet.microsoft.com/download) installed
+- [EF Core CLI tools](https://learn.microsoft.com/en-us/ef/core/cli/dotnet) (for database management)
 
 ```bash
 # Install the EF Core CLI tool (if not already installed)
 dotnet tool install --global dotnet-ef
+```
 
+### 1. Clone and Restore
+
+```bash
+git clone <repository-url>
+cd tenhourguitarist/src/TenHourGuitarist
+dotnet restore
+```
+
+### 2. Create the Database
+
+The application uses **SQLite** — no external database server is needed. The database file is created automatically in the project directory.
+
+```bash
 # Navigate to the project directory
-cd TenHourGuitarist.Blazor/src/TenHourGuitarist
+cd src/TenHourGuitarist
 
-# Create the initial migration
-dotnet ef migrations add InitialCreate
-
-# Apply the migration to create the database schema
+# Apply the migration to create the database
 dotnet ef database update
 ```
 
-This will create all 14+ tables (plus ASP.NET Identity tables) and seed the 4 roles + default admin account.
+This creates a `TenHourGuitarist_Dev.db` file (in Development) with all 14+ tables (plus ASP.NET Identity tables) and seeds the 4 roles + default admin account on first run.
 
-### 3. Configure Stripe
+The connection strings are pre-configured:
+- **Development**: `Data Source=TenHourGuitarist_Dev.db` (in `appsettings.Development.json`)
+- **Production**: `Data Source=TenHourGuitarist.db` (in `appsettings.json`)
+
+### 3. Run the Application
+
+```bash
+cd src/TenHourGuitarist
+
+# Run in development mode
+dotnet run
+
+# Or with hot reload
+dotnet watch
+```
+
+The app will be available at `http://localhost:5280` (or whatever port is configured in `Properties/launchSettings.json`).
+
+### 4. Log In as Admin
+
+After the first run, the seed data creates a default admin account:
+- **Email**: `admin@tenhourguitarist.com`
+- **Password**: `Admin@123456`
+
+> **Important**: Change the default admin password immediately after first login via `/admin/account`.
+
+---
+
+## Additional Configuration
+
+### 5. Configure Stripe (Payments)
+
+### Configure Stripe
 
 1. **Create Products and Prices** in the [Stripe Dashboard](https://dashboard.stripe.com/products):
    - Create subscription products (e.g., "Monthly Plan", "Annual Plan")
@@ -548,7 +584,7 @@ This will create all 14+ tables (plus ASP.NET Identity tables) and seed the 4 ro
 
 5. **Create Package records** in the admin dashboard (`/admin/packages`) with the `StripePriceId` field matching your Stripe Price IDs.
 
-### 4. Configure Email (AWS SES)
+### 6. Configure Email (AWS SES)
 
 1. **Verify your domain** in AWS SES
 2. **Create SMTP credentials** in AWS SES Console
@@ -566,33 +602,12 @@ This will create all 14+ tables (plus ASP.NET Identity tables) and seed the 4 ro
    }
    ```
 
-### 5. Configure Vimeo
+### 7. Configure Vimeo
 
 No API integration needed — lessons use direct Vimeo embed URLs. When creating lessons in the admin:
 - Set `VideoUrl` to the Vimeo URL (e.g., `https://vimeo.com/123456789`)
 - Set `FreeVideoUrl` for preview clips accessible without subscription
 - Ensure videos are set to "Hide from Vimeo" + "Allow embedding on specific domains" in Vimeo settings
-
-### 6. Change the Default Admin Password
-
-After first login with `admin@tenhourguitarist.com` / `Admin@123456`:
-1. Go to `/admin/account`
-2. Change the password immediately
-3. Optionally update the display name
-
-### 7. Run the Application Locally
-
-```bash
-cd TenHourGuitarist.Blazor/src/TenHourGuitarist
-
-# Run in development mode
-dotnet run
-
-# Or with hot reload
-dotnet watch
-```
-
-The app will be available at `https://localhost:7001` (or whatever port is in `launchSettings.json`).
 
 ### 8. Deploy to IIS
 
@@ -603,7 +618,6 @@ The app will be available at `https://localhost:7001` (or whatever port is in `l
 
 **Manual deployment:**
 ```bash
-cd TenHourGuitarist.Blazor
 dotnet publish src/TenHourGuitarist/TenHourGuitarist.csproj -c Release -o ./publish
 ```
 
@@ -612,7 +626,7 @@ Copy the `publish/` folder contents to your IIS site directory.
 **Automated deployment:**
 Push to the `stage` or `master` branch — the GitHub Actions workflow handles build, backup, and deployment automatically.
 
-### 9. Create Upload Directories
+### 9. Create Upload Directories (Production)
 
 On the server, ensure these directories exist under `wwwroot/uploads/`:
 ```
@@ -639,13 +653,13 @@ Using the admin dashboard:
 
 ### 11. Additional Hardening (Recommended)
 
-- [ ] Move secrets out of `appsettings.json` into environment variables or Azure Key Vault
+- [ ] Move secrets out of `appsettings.json` into environment variables or a secrets manager
 - [ ] Add CSP headers (Content Security Policy) for XSS protection
 - [ ] Add rate limiting on the contact form and login endpoints
 - [ ] Add reCAPTCHA to the contact form and registration
 - [ ] Set up Serilog file sink or Seq/Application Insights for production logging
 - [ ] Configure HTTPS redirect and HSTS in IIS
-- [ ] Set up database backups
+- [ ] Set up database backups (copy the `.db` file on a schedule)
 - [ ] Add health check endpoint for monitoring
 - [ ] Write integration tests for critical flows (registration, subscription, webhook)
 - [ ] Review and customize the Bootstrap/MudBlazor theme colors
@@ -653,9 +667,9 @@ Using the admin dashboard:
 ### 12. Data Migration (If Needed)
 
 The plan specifies a fresh schema with no migration from the old database. If you later need to migrate existing data:
-1. Export old data from the WebForms SQL Server database
+1. Export old data from the legacy database
 2. Transform the data to match the new schema (different column names, proper types, new FKs)
-3. Import using SQL scripts or a custom migration tool
+3. Import into the SQLite database using a custom migration tool or scripts
 4. Re-hash passwords (the old app used MD5; new app uses ASP.NET Identity's PBKDF2)
    - Users from the old system will need to use "Forgot Password" to set new passwords
 
@@ -664,7 +678,7 @@ The plan specifies a fresh schema with no migration from the old database. If yo
 ## Verification Checklist
 
 - [x] `dotnet build` succeeds with 0 warnings
-- [ ] `dotnet ef database update` creates schema; verify all tables exist
+- [x] `dotnet ef database update` creates SQLite schema; all tables verified
 - [ ] Register a new user → verify email → login → see member content → logout
 - [ ] Browse packages → Stripe checkout (test mode) → webhook fires → subscriber role assigned → premium lessons accessible
 - [ ] Login as Admin → create/edit/delete a course with image upload → verify on public site

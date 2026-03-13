@@ -34,7 +34,7 @@ public class LessonConfiguration : IEntityTypeConfiguration<Lesson>
             .HasMaxLength(500);
 
         builder.Property(l => l.CreatedAt)
-            .HasDefaultValueSql("GETUTCDATE()");
+            .HasDefaultValueSql("datetime('now')");
 
         builder.HasOne(l => l.Course)
             .WithMany(c => c.Lessons)

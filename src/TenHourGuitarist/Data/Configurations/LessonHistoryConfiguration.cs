@@ -14,7 +14,7 @@ public class LessonHistoryConfiguration : IEntityTypeConfiguration<LessonHistory
             .IsRequired();
 
         builder.Property(lh => lh.ViewedAt)
-            .HasDefaultValueSql("GETUTCDATE()");
+            .HasDefaultValueSql("datetime('now')");
 
         builder.HasOne(lh => lh.User)
             .WithMany(u => u.LessonHistories)

@@ -31,7 +31,7 @@ public class FreeResourceConfiguration : IEntityTypeConfiguration<FreeResource>
             .IsRequired();
 
         builder.Property(f => f.CreatedAt)
-            .HasDefaultValueSql("GETUTCDATE()");
+            .HasDefaultValueSql("datetime('now')");
 
         builder.HasOne(f => f.Author)
             .WithMany(u => u.FreeResources)

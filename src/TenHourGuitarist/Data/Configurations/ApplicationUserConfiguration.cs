@@ -16,7 +16,7 @@ public class ApplicationUserConfiguration : IEntityTypeConfiguration<Application
             .HasMaxLength(500);
 
         builder.Property(u => u.CreatedAt)
-            .HasDefaultValueSql("GETUTCDATE()");
+            .HasDefaultValueSql("datetime('now')");
 
         builder.Property(u => u.IsDeleted)
             .HasDefaultValue(false);

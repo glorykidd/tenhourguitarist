@@ -28,6 +28,6 @@ public class ContactMessageConfiguration : IEntityTypeConfiguration<ContactMessa
             .IsRequired();
 
         builder.Property(c => c.CreatedAt)
-            .HasDefaultValueSql("GETUTCDATE()");
+            .HasDefaultValueSql("datetime('now')");
     }
 }

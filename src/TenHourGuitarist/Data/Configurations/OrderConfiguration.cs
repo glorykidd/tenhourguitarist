@@ -11,7 +11,7 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.HasKey(o => o.Id);
 
         builder.Property(o => o.OrderRefId)
-            .HasDefaultValueSql("NEWID()");
+            .HasDefaultValueSql("lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab', abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6)))");
 
         builder.HasIndex(o => o.OrderRefId)
             .IsUnique();
@@ -33,7 +33,7 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
             .HasPrecision(18, 2);
 
         builder.Property(o => o.CreatedAt)
-            .HasDefaultValueSql("GETUTCDATE()");
+            .HasDefaultValueSql("datetime('now')");
 
         builder.HasOne(o => o.User)
             .WithMany(u => u.Orders)

@@ -1,5 +1,5 @@
 # TenHourGuitarist — Blazor Server Migration Plan
-
+ some new text
 ## Overview
 
 This document describes the complete migration of TenHourGuitarist from ASP.NET WebForms (.NET Framework 4.8) to a modern .NET 10 Blazor Server application. The old application had significant technical debt: WebForms code-behind pattern, raw ADO.NET SQL, MD5 password hashing, hardcoded API keys, no unit tests, and tightly coupled YAF forum integration. The new application is a ground-up rebuild with a fresh database schema.

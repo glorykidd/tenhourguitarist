@@ -62,7 +62,9 @@ public class PodcastService(ApplicationDbContext db) : IPodcastService
 
     public async Task UpdateAsync(Podcast podcast)
     {
-        db.Podcasts.Update(podcast);
+        var existing = await db.Podcasts.FindAsync(podcast.Id);
+        if (existing is null) return;
+        db.Entry(existing).CurrentValues.SetValues(podcast);
         await db.SaveChangesAsync();
     }
 

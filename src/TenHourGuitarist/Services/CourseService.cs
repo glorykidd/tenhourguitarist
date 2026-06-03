@@ -93,7 +93,9 @@ public class CourseService(ApplicationDbContext db) : ICourseService
 
     public async Task UpdateAsync(Course course)
     {
-        db.Courses.Update(course);
+        var existing = await db.Courses.FindAsync(course.Id);
+        if (existing is null) return;
+        db.Entry(existing).CurrentValues.SetValues(course);
         await db.SaveChangesAsync();
     }
 

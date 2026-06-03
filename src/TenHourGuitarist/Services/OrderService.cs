@@ -79,7 +79,9 @@ public class OrderService(ApplicationDbContext db) : IOrderService
 
     public async Task UpdateAsync(Order order)
     {
-        db.Orders.Update(order);
+        var existing = await db.Orders.FindAsync(order.Id);
+        if (existing is null) return;
+        db.Entry(existing).CurrentValues.SetValues(order);
         await db.SaveChangesAsync();
     }
 }

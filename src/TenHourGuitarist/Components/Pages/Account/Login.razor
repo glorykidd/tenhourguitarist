@@ -1,10 +1,6 @@
 @page "/account/login"
 @using Microsoft.AspNetCore.Identity
-@using System.ComponentModel.DataAnnotations
-@inject SignInManager<ApplicationUser> SignInManager
-@inject UserManager<ApplicationUser> UserManager
 @inject NavigationManager Navigation
-@inject ILogger<Login> Logger
 
 <PageTitle>Sign In - TenHourGuitarist</PageTitle>
 
@@ -17,31 +13,32 @@
 
         <StatusAlert Message="@_errorMessage" Severity="Severity.Error" />
 
-        <EditForm Model="_model" OnValidSubmit="HandleLogin" FormName="login">
-            <DataAnnotationsValidator />
+        <form method="post" action="/account/do-login">
+            <input type="hidden" name="returnUrl" value="@ReturnUrl" />
 
-            <MudTextField @bind-Value="_model.Email"
+            <MudTextField @bind-Value="_email"
                           Label="Email"
                           Variant="Variant.Outlined"
                           InputType="InputType.Email"
                           Adornment="Adornment.Start"
                           AdornmentIcon="@Icons.Material.Filled.Email"
-                          For="@(() => _model.Email)"
+                          UserAttributes="_emailAttrs"
                           Class="mb-4" />
 
-            <MudTextField @bind-Value="_model.Password"
+            <MudTextField @bind-Value="_password"
                           Label="Password"
                           Variant="Variant.Outlined"
                           InputType="@(_showPassword ? InputType.Text : InputType.Password)"
                           Adornment="Adornment.End"
                           AdornmentIcon="@(_showPassword ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff)"
                           OnAdornmentClick="() => _showPassword = !_showPassword"
-                          For="@(() => _model.Password)"
+                          UserAttributes="_passwordAttrs"
                           Class="mb-4" />
 
-            <MudCheckBox @bind-Value="_model.RememberMe"
+            <MudCheckBox @bind-Value="_rememberMe"
                          Label="Remember me"
                          Color="Color.Primary"
+                         UserAttributes="_rememberMeAttrs"
                          Class="mb-4" />
 
             <MudButton ButtonType="ButtonType.Submit"
@@ -49,19 +46,10 @@
                        Color="Color.Primary"
                        FullWidth="true"
                        Size="Size.Large"
-                       Disabled="_processing"
                        Class="mb-4">
-                @if (_processing)
-                {
-                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" />
-                    <span>Signing In...</span>
-                }
-                else
-                {
-                    <span>Sign In</span>
-                }
+                Sign In
             </MudButton>
-        </EditForm>
+        </form>
 
         <MudDivider Class="my-4" />
 
@@ -77,95 +65,30 @@
 </MudContainer>
 
 @code {
-    [CascadingParameter]
-    private HttpContext? HttpContext { get; set; }
-
     [SupplyParameterFromQuery]
     private string? ReturnUrl { get; set; }
 
-    private LoginModel _model = new();
-    private bool _processing;
-    private bool _showPassword;
+    [SupplyParameterFromQuery]
+    private string? Error { get; set; }
+
     private string? _errorMessage;
+    private string _email = string.Empty;
+    private string _password = string.Empty;
+    private bool _rememberMe;
+    private bool _showPassword;
 
-    protected override void OnInitialized()
+    private static readonly Dictionary<string, object> _emailAttrs = new() { ["name"] = "email" };
+    private static readonly Dictionary<string, object> _passwordAttrs = new() { ["name"] = "password" };
+    private static readonly Dictionary<string, object> _rememberMeAttrs = new() { ["name"] = "rememberMe" };
+
+    protected override void OnParametersSet()
     {
-        // If user is already authenticated, redirect
-        if (HttpContext?.User?.Identity?.IsAuthenticated == true)
+        _errorMessage = Error switch
         {
-            Navigation.NavigateTo(ReturnUrl ?? "/", forceLoad: true);
-        }
-    }
-
-    private async Task HandleLogin()
-    {
-        _errorMessage = null;
-        _processing = true;
-
-        try
-        {
-            var user = await UserManager.FindByEmailAsync(_model.Email);
-            if (user is null || user.IsDeleted)
-            {
-                _errorMessage = "Invalid email or password.";
-                return;
-            }
-
-            if (!await UserManager.IsEmailConfirmedAsync(user))
-            {
-                _errorMessage = "Please verify your email address before signing in. Check your inbox for the verification link.";
-                return;
-            }
-
-            if (await UserManager.IsLockedOutAsync(user))
-            {
-                _errorMessage = "This account has been locked due to multiple failed sign-in attempts. Please try again later.";
-                return;
-            }
-
-            var result = await SignInManager.PasswordSignInAsync(user, _model.Password, _model.RememberMe, lockoutOnFailure: true);
-
-            if (result.Succeeded)
-            {
-                Logger.LogInformation("User {Email} signed in successfully", _model.Email);
-                Navigation.NavigateTo(ReturnUrl ?? "/", forceLoad: true);
-                return;
-            }
-
-            if (result.IsLockedOut)
-            {
-                _errorMessage = "This account has been locked due to multiple failed sign-in attempts. Please try again later.";
-                Logger.LogWarning("User {Email} account locked out", _model.Email);
-            }
-            else if (result.IsNotAllowed)
-            {
-                _errorMessage = "Sign-in is not allowed. Please verify your email address.";
-            }
-            else
-            {
-                _errorMessage = "Invalid email or password.";
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error during sign-in for {Email}", _model.Email);
-            _errorMessage = "An unexpected error occurred. Please try again.";
-        }
-        finally
-        {
-            _processing = false;
-        }
-    }
-
-    private sealed class LoginModel
-    {
-        [Required(ErrorMessage = "Email is required.")]
-        [EmailAddress(ErrorMessage = "Please enter a valid email address.")]
-        public string Email { get; set; } = string.Empty;
-
-        [Required(ErrorMessage = "Password is required.")]
-        public string Password { get; set; } = string.Empty;
-
-        public bool RememberMe { get; set; }
+            "invalid" => "Invalid email or password.",
+            "unconfirmed" => "Please verify your email address before signing in. Check your inbox for the verification link.",
+            "locked" => "This account has been locked due to multiple failed sign-in attempts. Please try again later.",
+            _ => null
+        };
     }
 }

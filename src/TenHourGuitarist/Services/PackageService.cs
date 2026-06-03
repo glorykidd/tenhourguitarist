@@ -44,7 +44,9 @@ public class PackageService(ApplicationDbContext db) : IPackageService
 
     public async Task UpdateAsync(Package package)
     {
-        db.Packages.Update(package);
+        var existing = await db.Packages.FindAsync(package.Id);
+        if (existing is null) return;
+        db.Entry(existing).CurrentValues.SetValues(package);
         await db.SaveChangesAsync();
     }
 

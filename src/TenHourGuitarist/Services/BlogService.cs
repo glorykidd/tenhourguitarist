@@ -78,7 +78,9 @@ public class BlogService(ApplicationDbContext db) : IBlogService
 
     public async Task UpdateAsync(BlogPost post)
     {
-        db.BlogPosts.Update(post);
+        var existing = await db.BlogPosts.FindAsync(post.Id);
+        if (existing is null) return;
+        db.Entry(existing).CurrentValues.SetValues(post);
         await db.SaveChangesAsync();
     }
 
@@ -123,7 +125,9 @@ public class BlogService(ApplicationDbContext db) : IBlogService
 
     public async Task UpdateCategoryAsync(BlogCategory category)
     {
-        db.BlogCategories.Update(category);
+        var existing = await db.BlogCategories.FindAsync(category.Id);
+        if (existing is null) return;
+        db.Entry(existing).CurrentValues.SetValues(category);
         await db.SaveChangesAsync();
     }
 

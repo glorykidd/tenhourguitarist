@@ -46,11 +46,11 @@ else
                 </MudItem>
 
                 <MudItem xs="12" md="6">
-                    <MudSelect @bind-Value="_lesson.CourseId" Label="Course" Required="true"
+                    <MudSelect T="int" @bind-Value="_lesson.CourseId" Label="Course" Required="true"
                                RequiredError="Course is required">
                         @foreach (var course in _courses)
                         {
-                            <MudSelectItem Value="@course.Id">@course.Name</MudSelectItem>
+                            <MudSelectItem T="int" Value="@course.Id">@course.Name</MudSelectItem>
                         }
                     </MudSelect>
                 </MudItem>

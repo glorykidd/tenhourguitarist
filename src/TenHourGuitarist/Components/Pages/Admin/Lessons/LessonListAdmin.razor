@@ -24,7 +24,7 @@
            ValueChanged="OnCourseFilterChanged">
     @foreach (var course in _courses)
     {
-        <MudSelectItem Value="@course.Id">@course.Name</MudSelectItem>
+        <MudSelectItem T="int?" Value="@((int?)course.Id)">@course.Name</MudSelectItem>
     }
 </MudSelect>
 

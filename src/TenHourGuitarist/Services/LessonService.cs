@@ -52,7 +52,9 @@ public class LessonService(ApplicationDbContext db) : ILessonService
 
     public async Task UpdateAsync(Lesson lesson)
     {
-        db.Lessons.Update(lesson);
+        var existing = await db.Lessons.FindAsync(lesson.Id);
+        if (existing is null) return;
+        db.Entry(existing).CurrentValues.SetValues(lesson);
         await db.SaveChangesAsync();
     }
 

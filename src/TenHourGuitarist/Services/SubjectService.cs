@@ -31,7 +31,9 @@ public class SubjectService(ApplicationDbContext db) : ISubjectService
 
     public async Task UpdateAsync(Subject subject)
     {
-        db.Subjects.Update(subject);
+        var existing = await db.Subjects.FindAsync(subject.Id);
+        if (existing is null) return;
+        db.Entry(existing).CurrentValues.SetValues(subject);
         await db.SaveChangesAsync();
     }
 

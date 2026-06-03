@@ -48,7 +48,9 @@ public class FreeResourceService(ApplicationDbContext db) : IFreeResourceService
 
     public async Task UpdateAsync(FreeResource resource)
     {
-        db.FreeResources.Update(resource);
+        var existing = await db.FreeResources.FindAsync(resource.Id);
+        if (existing is null) return;
+        db.Entry(existing).CurrentValues.SetValues(resource);
         await db.SaveChangesAsync();
     }
 

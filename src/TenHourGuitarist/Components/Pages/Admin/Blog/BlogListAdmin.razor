@@ -9,14 +9,12 @@
 
 <PageTitle>Manage Blog Posts</PageTitle>
 
-<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
-    <MudText Typo="Typo.h4">Blog Posts</MudText>
-    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+<MudText Typo="Typo.h4" Class="mb-2">Blog Posts</MudText>
+<MudButton Variant="Variant.Filled" Color="Color.Primary"
                StartIcon="@Icons.Material.Filled.Add"
-               Href="/admin/blog/new">
+               Href="/admin/blog/new" Class="mb-4">
         Add Post
     </MudButton>
-</MudStack>
 
 @if (_loading)
 {

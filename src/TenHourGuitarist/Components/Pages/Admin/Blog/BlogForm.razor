@@ -42,10 +42,10 @@ else
                 </MudItem>
 
                 <MudItem xs="12" md="6">
-                    <MudSelect @bind-Value="_post.CategoryId" Label="Category" Clearable="true">
+                    <MudSelect T="int?" @bind-Value="_post.CategoryId" Label="Category" Clearable="true">
                         @foreach (var category in _categories)
                         {
-                            <MudSelectItem Value="@((int?)category.Id)">@category.Title</MudSelectItem>
+                            <MudSelectItem T="int?" Value="@((int?)category.Id)">@category.Title</MudSelectItem>
                         }
                     </MudSelect>
                 </MudItem>

@@ -10,14 +10,12 @@
 
 <PageTitle>Manage Lessons</PageTitle>
 
-<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
-    <MudText Typo="Typo.h4">Lessons</MudText>
-    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+<MudText Typo="Typo.h4" Class="mb-2">Lessons</MudText>
+<MudButton Variant="Variant.Filled" Color="Color.Primary"
                StartIcon="@Icons.Material.Filled.Add"
-               Href="/admin/lessons/new">
+               Href="/admin/lessons/new" Class="mb-4">
         Add Lesson
     </MudButton>
-</MudStack>
 
 <MudSelect T="int?" Value="_selectedCourseId" Label="Filter by Course" Class="mb-4"
            Clearable="true" Style="max-width: 400px;"

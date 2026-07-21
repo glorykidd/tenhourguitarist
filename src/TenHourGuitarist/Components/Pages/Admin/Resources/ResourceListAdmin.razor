@@ -9,14 +9,12 @@
 
 <PageTitle>Manage Free Resources</PageTitle>
 
-<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
-    <MudText Typo="Typo.h4">Free Resources</MudText>
-    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+<MudText Typo="Typo.h4" Class="mb-2">Free Resources</MudText>
+<MudButton Variant="Variant.Filled" Color="Color.Primary"
                StartIcon="@Icons.Material.Filled.Add"
-               Href="/admin/resources/new">
+               Href="/admin/resources/new" Class="mb-4">
         Add Resource
     </MudButton>
-</MudStack>
 
 @if (_loading)
 {

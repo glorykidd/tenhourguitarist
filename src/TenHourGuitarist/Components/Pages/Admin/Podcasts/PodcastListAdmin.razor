@@ -9,14 +9,12 @@
 
 <PageTitle>Manage Podcasts</PageTitle>
 
-<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
-    <MudText Typo="Typo.h4">Podcasts</MudText>
-    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+<MudText Typo="Typo.h4" Class="mb-2">Podcasts</MudText>
+<MudButton Variant="Variant.Filled" Color="Color.Primary"
                StartIcon="@Icons.Material.Filled.Add"
-               Href="/admin/podcasts/new">
+               Href="/admin/podcasts/new" Class="mb-4">
         Add Podcast
     </MudButton>
-</MudStack>
 
 @if (_loading)
 {

@@ -15,7 +15,7 @@ public class CourseService(ApplicationDbContext db) : ICourseService
 
         if (publishedOnly)
         {
-            query = query.Where(c => c.IsPublished);
+            query = query.Where(c => c.IsPublished && !c.IsFree);
         }
 
         return await query
@@ -45,7 +45,7 @@ public class CourseService(ApplicationDbContext db) : ICourseService
     {
         var dbQuery = db.Courses
             .Include(c => c.Instructor)
-            .Where(c => c.IsPublished)
+            .Where(c => c.IsPublished && !c.IsFree)
             .AsNoTracking();
 
         if (!string.IsNullOrWhiteSpace(query))
@@ -68,7 +68,7 @@ public class CourseService(ApplicationDbContext db) : ICourseService
     public async Task<int> GetTotalCountAsync(string? query, CourseLevel? level)
     {
         var dbQuery = db.Courses
-            .Where(c => c.IsPublished)
+            .Where(c => c.IsPublished && !c.IsFree)
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(query))

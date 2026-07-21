@@ -10,14 +10,12 @@
 
 <PageTitle>Manage Instructors</PageTitle>
 
-<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
-    <MudText Typo="Typo.h4">Instructors</MudText>
-    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+<MudText Typo="Typo.h4" Class="mb-2">Instructors</MudText>
+<MudButton Variant="Variant.Filled" Color="Color.Primary"
                StartIcon="@Icons.Material.Filled.Add"
-               Href="/admin/instructors/new">
+               Href="/admin/instructors/new" Class="mb-4">
         Add Instructor
     </MudButton>
-</MudStack>
 
 @if (_loading)
 {

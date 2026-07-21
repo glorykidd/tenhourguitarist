@@ -9,14 +9,13 @@
 
 <PageTitle>Manage Blog Categories</PageTitle>
 
-<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
-    <MudText Typo="Typo.h4">Blog Categories</MudText>
-    <MudButton Variant="Variant.Filled" Color="Color.Primary"
-               StartIcon="@Icons.Material.Filled.Add"
-               Href="/admin/blog/categories/new">
-        Add Category
-    </MudButton>
-</MudStack>
+<MudText Typo="Typo.h4" Class="mb-2">Blog Categories</MudText>
+<MudButton Variant="Variant.Filled" Color="Color.Primary"
+           StartIcon="@Icons.Material.Filled.Add"
+           Href="/admin/blog/categories/new"
+           Class="mb-4">
+    Add Category
+</MudButton>
 
 @if (_loading)
 {

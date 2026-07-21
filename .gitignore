@@ -421,3 +421,6 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Local secret overrides (never commit real secrets)
+appsettings.Local.json

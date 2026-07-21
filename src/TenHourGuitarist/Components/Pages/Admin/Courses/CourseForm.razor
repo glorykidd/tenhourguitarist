@@ -43,10 +43,10 @@ else
                 </MudItem>
 
                 <MudItem xs="12" md="4">
-                    <MudSelect @bind-Value="_course.Level" Label="Level" Required="true">
+                    <MudSelect T="CourseLevel" @bind-Value="_course.Level" Label="Level" Required="true">
                         @foreach (var level in Enum.GetValues<CourseLevel>())
                         {
-                            <MudSelectItem Value="@level">@level</MudSelectItem>
+                            <MudSelectItem T="CourseLevel" Value="@level">@level</MudSelectItem>
                         }
                     </MudSelect>
                 </MudItem>
@@ -74,11 +74,11 @@ else
                 </MudItem>
 
                 <MudItem xs="12" md="6">
-                    <MudSelect @bind-Value="_course.InstructorId" Label="Instructor" Required="true"
+                    <MudSelect T="string" @bind-Value="_course.InstructorId" Label="Instructor" Required="true"
                                RequiredError="Instructor is required">
                         @foreach (var instructor in _instructors)
                         {
-                            <MudSelectItem Value="@instructor.Id">@instructor.DisplayName (@instructor.Email)</MudSelectItem>
+                            <MudSelectItem T="string" Value="@instructor.Id">@instructor.DisplayName (@instructor.Email)</MudSelectItem>
                         }
                     </MudSelect>
                 </MudItem>

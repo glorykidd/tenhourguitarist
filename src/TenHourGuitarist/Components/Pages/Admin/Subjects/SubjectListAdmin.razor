@@ -9,14 +9,12 @@
 
 <PageTitle>Manage Subjects</PageTitle>
 
-<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
-    <MudText Typo="Typo.h4">Subjects</MudText>
-    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+<MudText Typo="Typo.h4" Class="mb-2">Subjects</MudText>
+<MudButton Variant="Variant.Filled" Color="Color.Primary"
                StartIcon="@Icons.Material.Filled.Add"
-               Href="/admin/subjects/new">
+               Href="/admin/subjects/new" Class="mb-4">
         Add Subject
     </MudButton>
-</MudStack>
 
 @if (_loading)
 {

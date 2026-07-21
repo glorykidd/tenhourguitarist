@@ -1,12 +1,29 @@
 @using TinyMCE.Blazor
+@inject IConfiguration Configuration
 
-<Editor @bind-Value="Value"
+<Editor Value="@Value"
+        ValueChanged="OnValueChanged"
         Conf="@_editorConfig"
-        ScriptSrc="https://cdn.tiny.cloud/1/no-api-key/tinymce/6/tinymce.min.js" />
+        ScriptSrc="@_scriptSrc" />
 
 @code {
     [Parameter] public string? Value { get; set; }
     [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+
+    private string _scriptSrc
+    {
+        get
+        {
+            var apiKey = Configuration["TinyMce:ApiKey"];
+            return $"https://cdn.tiny.cloud/1/{(string.IsNullOrEmpty(apiKey) ? "no-api-key" : apiKey)}/tinymce/6/tinymce.min.js";
+        }
+    }
+
+    private async Task OnValueChanged(string? newValue)
+    {
+        Value = newValue;
+        await ValueChanged.InvokeAsync(newValue);
+    }
 
     private Dictionary<string, object> _editorConfig = new()
     {

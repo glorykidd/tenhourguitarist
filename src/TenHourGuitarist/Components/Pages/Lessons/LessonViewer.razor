@@ -1,0 +1,218 @@
+@page "/courses/{CourseSlug}/lessons/{LessonSlug}"
+@inject ILessonService LessonService
+@inject ISubscriptionService SubscriptionService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Navigation
+
+<PageTitle>@(_lesson?.Name ?? "Lesson") - TenHourGuitarist</PageTitle>
+
+@if (_loading)
+{
+    <LoadingSpinner Message="Loading lesson..." />
+}
+else if (_lesson is null)
+{
+    <section class="container py-5 text-center">
+        <MudIcon Icon="@Icons.Material.Filled.ErrorOutline" Size="Size.Large" Class="mb-3 text-muted" />
+        <MudText Typo="Typo.h5" Class="text-muted">Lesson not found.</MudText>
+        <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/courses" Class="mt-3">
+            Back to Courses
+        </MudButton>
+    </section>
+}
+else
+{
+    <section class="bg-dark text-white py-4">
+        <div class="container">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-2">
+                    <li class="breadcrumb-item"><a href="/courses" class="text-white-50">Courses</a></li>
+                    <li class="breadcrumb-item"><a href="/courses/@CourseSlug" class="text-white-50">@_lesson.Course.Name</a></li>
+                    <li class="breadcrumb-item active text-white" aria-current="page">@_lesson.Name</li>
+                </ol>
+            </nav>
+            <h1 class="fw-bold">@_lesson.Name</h1>
+            @if (_lesson.DurationMinutes > 0 || _lesson.DurationSeconds > 0)
+            {
+                <span class="text-white-50">
+                    <MudIcon Icon="@Icons.Material.Filled.AccessTime" Size="Size.Small" Class="me-1" />
+                    @FormatDuration(_lesson.DurationMinutes, _lesson.DurationSeconds)
+                </span>
+            }
+        </div>
+    </section>
+
+    <section class="container py-5">
+        <div class="row">
+            <div class="col-lg-8">
+                @if (_hasAccess)
+                {
+                    <!-- Video player -->
+                    @if (!string.IsNullOrEmpty(_lesson.VideoUrl))
+                    {
+                        <div class="mb-4">
+                            <VimeoPlayer VideoUrl="@_lesson.VideoUrl" />
+                        </div>
+                    }
+                    else if (!string.IsNullOrEmpty(_lesson.FreeVideoUrl))
+                    {
+                        <div class="mb-4">
+                            <VimeoPlayer VideoUrl="@_lesson.FreeVideoUrl" />
+                        </div>
+                    }
+                }
+                else
+                {
+                    <!-- Subscription gate -->
+                    <div class="card border-warning mb-4">
+                        <div class="card-body text-center py-5">
+                            <MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Large" Color="Color.Warning" Class="mb-3" />
+                            <h4>Subscription Required</h4>
+                            <p class="text-muted mb-4">
+                                This lesson is available to subscribers. Subscribe now to unlock all premium content.
+                            </p>
+                            <a href="/subscribe/packages" class="btn btn-primary btn-lg me-2">View Packages</a>
+                            @if (!_isAuthenticated)
+                            {
+                                <a href="/account/login" class="btn btn-outline-secondary btn-lg">Login</a>
+                            }
+                        </div>
+                    </div>
+                }
+
+                <!-- Lesson description -->
+                @if (!string.IsNullOrEmpty(_lesson.Description))
+                {
+                    <h4 class="mb-3">About This Lesson</h4>
+                    <p class="mb-4">@_lesson.Description</p>
+                }
+
+                <!-- Prev / Next navigation -->
+                <div class="d-flex justify-content-between mt-4 pt-4 border-top">
+                    @if (_previousLesson is not null)
+                    {
+                        <a href="/courses/@CourseSlug/lessons/@_previousLesson.Slug" class="btn btn-outline-secondary">
+                            <MudIcon Icon="@Icons.Material.Filled.ArrowBack" Size="Size.Small" Class="me-1" />
+                            @_previousLesson.Name
+                        </a>
+                    }
+                    else
+                    {
+                        <div></div>
+                    }
+
+                    @if (_nextLesson is not null)
+                    {
+                        <a href="/courses/@CourseSlug/lessons/@_nextLesson.Slug" class="btn btn-outline-secondary">
+                            @_nextLesson.Name
+                            <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Size="Size.Small" Class="ms-1" />
+                        </a>
+                    }
+                </div>
+            </div>
+
+            <!-- Sidebar with lesson info -->
+            <div class="col-lg-4">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">Lesson Details</h5>
+                        <ul class="list-unstyled mb-0">
+                            <li class="mb-2">
+                                <strong>Course:</strong>
+                                <a href="/courses/@CourseSlug">@_lesson.Course.Name</a>
+                            </li>
+                            @if (!string.IsNullOrEmpty(_lesson.Subject))
+                            {
+                                <li class="mb-2">
+                                    <strong>Subject:</strong> @_lesson.Subject
+                                </li>
+                            }
+                            @if (_lesson.DurationMinutes > 0 || _lesson.DurationSeconds > 0)
+                            {
+                                <li class="mb-2">
+                                    <strong>Duration:</strong> @FormatDuration(_lesson.DurationMinutes, _lesson.DurationSeconds)
+                                </li>
+                            }
+                            <li class="mb-2">
+                                <strong>Lesson:</strong> @(_currentIndex + 1) of @_allLessons.Count
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="text-center mt-3">
+                    <a href="/courses/@CourseSlug" class="btn btn-outline-primary w-100">
+                        View All Lessons in Course
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+}
+
+@code {
+    [Parameter] public string CourseSlug { get; set; } = string.Empty;
+    [Parameter] public string LessonSlug { get; set; } = string.Empty;
+
+    private Lesson? _lesson;
+    private List<Lesson> _allLessons = [];
+    private Lesson? _previousLesson;
+    private Lesson? _nextLesson;
+    private int _currentIndex;
+    private bool _loading = true;
+    private bool _hasAccess;
+    private bool _isAuthenticated;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _lesson = await LessonService.GetBySlugAsync(CourseSlug, LessonSlug);
+        if (_lesson is null)
+        {
+            _loading = false;
+            return;
+        }
+
+        // Load all lessons in the course for navigation
+        _allLessons = await LessonService.GetByCourseIdAsync(_lesson.CourseId);
+        _currentIndex = _allLessons.FindIndex(l => l.Id == _lesson.Id);
+        if (_currentIndex > 0)
+            _previousLesson = _allLessons[_currentIndex - 1];
+        if (_currentIndex < _allLessons.Count - 1)
+            _nextLesson = _allLessons[_currentIndex + 1];
+
+        // Check access
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        _isAuthenticated = user.Identity?.IsAuthenticated ?? false;
+
+        if (_lesson.Course.IsFree)
+        {
+            _hasAccess = true;
+        }
+        else if (_isAuthenticated)
+        {
+            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!string.IsNullOrEmpty(userId))
+            {
+                _hasAccess = await SubscriptionService.HasActiveSubscriptionAsync(userId);
+
+                // Record view for authenticated users
+                if (_hasAccess)
+                {
+                    await LessonService.RecordViewAsync(userId, _lesson.Id, _lesson.CourseId);
+                }
+            }
+        }
+
+        _loading = false;
+    }
+
+    private static string FormatDuration(int minutes, int seconds)
+    {
+        if (minutes > 0 && seconds > 0)
+            return $"{minutes}m {seconds}s";
+        if (minutes > 0)
+            return $"{minutes} min";
+        return $"{seconds}s";
+    }
+}

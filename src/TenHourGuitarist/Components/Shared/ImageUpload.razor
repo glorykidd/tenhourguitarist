@@ -1,0 +1,61 @@
+@inject IFileStorageService FileStorage
+@inject ISnackbar Snackbar
+
+<div>
+    @if (!string.IsNullOrEmpty(CurrentImagePath))
+    {
+        <div class="mb-2">
+            <img src="@CurrentImagePath" alt="Current image" class="img-thumbnail" style="max-height: 200px;" />
+        </div>
+    }
+
+    <MudFileUpload T="IBrowserFile" Accept=".jpg,.jpeg,.png,.gif,.webp"
+                   FilesChanged="OnFileSelected" MaximumFileCount="1">
+        <ActivatorContent>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.CloudUpload">
+                @(string.IsNullOrEmpty(CurrentImagePath) ? "Upload Image" : "Change Image")
+            </MudButton>
+        </ActivatorContent>
+    </MudFileUpload>
+
+    @if (_uploading)
+    {
+        <MudProgressLinear Indeterminate="true" Class="mt-2" />
+    }
+</div>
+
+@code {
+    [Parameter] public string? CurrentImagePath { get; set; }
+    [Parameter] public string Subfolder { get; set; } = "images";
+    [Parameter] public EventCallback<string> OnUploaded { get; set; }
+
+    private bool _uploading;
+
+    private async Task OnFileSelected(IBrowserFile file)
+    {
+        if (file.Size > 5 * 1024 * 1024)
+        {
+            Snackbar.Add("Image must be under 5MB.", Severity.Error);
+            return;
+        }
+
+        _uploading = true;
+        try
+        {
+            using var stream = file.OpenReadStream(5 * 1024 * 1024);
+            var path = await FileStorage.SaveImageAsync(stream, file.Name, Subfolder);
+            CurrentImagePath = path;
+            await OnUploaded.InvokeAsync(path);
+            Snackbar.Add("Image uploaded.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Upload failed: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _uploading = false;
+        }
+    }
+}

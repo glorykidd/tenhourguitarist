@@ -1,0 +1,99 @@
+@page "/free-lessons"
+@inject ILessonService LessonService
+
+<PageTitle>Free Lessons - TenHourGuitarist</PageTitle>
+
+<section class="bg-dark text-white py-5">
+    <div class="container text-center">
+        <h1 class="display-5 fw-bold">Free Lessons</h1>
+        <p class="lead mt-3">Start learning guitar today with our collection of free lessons.</p>
+    </div>
+</section>
+
+<section class="container py-5">
+    @if (_loading)
+    {
+        <LoadingSpinner />
+    }
+    else if (!_lessons.Any())
+    {
+        <div class="text-center py-5">
+            <MudIcon Icon="@Icons.Material.Filled.LibraryMusic" Size="Size.Large" Class="mb-3 text-muted" />
+            <MudText Typo="Typo.h6" Class="text-muted">No free lessons available at the moment.</MudText>
+            <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/courses" Class="mt-2">
+                Browse All Courses
+            </MudButton>
+        </div>
+    }
+    else
+    {
+        <div class="row g-4">
+        @foreach (var lesson in _lessons)
+        {
+            <div class="col-md-4">
+                <MudCard Class="h-100" Elevation="2">
+                    @if (!string.IsNullOrEmpty(lesson.CoverImagePath))
+                    {
+                        <MudCardMedia Image="@lesson.CoverImagePath" Height="200" />
+                    }
+                    else if (!string.IsNullOrEmpty(lesson.Course?.CoverImagePath))
+                    {
+                        <MudCardMedia Image="@lesson.Course.CoverImagePath" Height="200" />
+                    }
+                    else
+                    {
+                        <MudCardMedia Image="/images/lesson-placeholder.jpg" Height="200" />
+                    }
+                    <MudCardContent>
+                        <MudText Typo="Typo.h6">@lesson.Name</MudText>
+                        @if (lesson.Course is not null)
+                        {
+                            <MudText Typo="Typo.caption" Class="text-muted">
+                                From: @lesson.Course.Name
+                            </MudText>
+                        }
+                        <MudChip T="string" Color="Color.Success" Size="Size.Small" Class="mt-1">Free</MudChip>
+                        @if (lesson.DurationMinutes > 0 || lesson.DurationSeconds > 0)
+                        {
+                            <MudText Typo="Typo.caption" Class="text-muted mt-1">
+                                <MudIcon Icon="@Icons.Material.Filled.AccessTime" Size="Size.Small" Class="me-1" />
+                                @FormatDuration(lesson.DurationMinutes, lesson.DurationSeconds)
+                            </MudText>
+                        }
+                        <MudText Typo="Typo.body2" Class="mt-2 text-muted">
+                            @(lesson.Description?.Length > 120 ? lesson.Description[..120] + "..." : lesson.Description)
+                        </MudText>
+                    </MudCardContent>
+                    <MudCardActions>
+                        <MudButton Variant="Variant.Text"
+                                   Color="Color.Primary"
+                                   Href="@($"/courses/{lesson.Course?.Slug}/lessons/{lesson.Slug}")">
+                            Watch Lesson
+                        </MudButton>
+                    </MudCardActions>
+                </MudCard>
+            </div>
+        }
+        </div>
+    }
+</section>
+
+@code {
+    private List<Lesson> _lessons = [];
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _lessons = await LessonService.GetFreeLessonsAsync();
+        _loading = false;
+    }
+
+    private static string FormatDuration(int minutes, int seconds)
+    {
+        if (minutes > 0 && seconds > 0)
+            return $"{minutes}m {seconds}s";
+        if (minutes > 0)
+            return $"{minutes} min";
+        return $"{seconds}s";
+    }
+}

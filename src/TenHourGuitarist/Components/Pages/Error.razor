@@ -1,0 +1,45 @@
+@page "/Error"
+@using System.Diagnostics
+@layout MainLayout
+
+<PageTitle>Error - TenHourGuitarist</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="py-16 text-center">
+    <MudIcon Icon="@Icons.Material.Filled.ErrorOutline" Color="Color.Error" Style="font-size: 5rem;" />
+
+    <MudText Typo="Typo.h4" Class="mt-4 mb-2" Color="Color.Error">
+        Something Went Wrong
+    </MudText>
+
+    <MudText Typo="Typo.body1" Class="mb-6" Color="Color.Secondary">
+        We encountered an unexpected error while processing your request. Please try again, and if the problem persists, contact our support team.
+    </MudText>
+
+    @if (ShowRequestId)
+    {
+        <MudAlert Severity="Severity.Info" Class="mb-4" Variant="Variant.Outlined">
+            <strong>Request ID:</strong> @RequestId
+        </MudAlert>
+    }
+
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/" Class="mr-2">
+        Go to Home
+    </MudButton>
+    <MudButton Variant="Variant.Outlined" Color="Color.Default" OnClick="@(() => NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: true))">
+        Try Again
+    </MudButton>
+</MudContainer>
+
+@code {
+    [Inject]
+    private NavigationManager NavigationManager { get; set; } = default!;
+
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    private string? RequestId { get; set; }
+    private bool ShowRequestId => !string.IsNullOrEmpty(RequestId);
+
+    protected override void OnInitialized() =>
+        RequestId = Activity.Current?.Id ?? HttpContext?.TraceIdentifier;
+}

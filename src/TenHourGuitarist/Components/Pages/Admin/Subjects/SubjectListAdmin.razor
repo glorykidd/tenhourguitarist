@@ -1,0 +1,102 @@
+@page "/admin/subjects"
+@layout AdminLayout
+@attribute [Authorize(Policy = "AdminOnly")]
+
+@inject ISubjectService SubjectService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+
+<PageTitle>Manage Subjects</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+    <MudText Typo="Typo.h4">Subjects</MudText>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Add"
+               Href="/admin/subjects/new">
+        Add Subject
+    </MudButton>
+</MudStack>
+
+@if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else
+{
+    <MudDataGrid Items="@_subjects" Dense="true" Striped="true" Hover="true" Filterable="true" SortMode="SortMode.Multiple">
+        <Columns>
+            <PropertyColumn Property="x => x.Name" Title="Name" />
+            <PropertyColumn Property="x => x.Description" Title="Description" />
+            <TemplateColumn Title="Actions" Sortable="false" Filterable="false">
+                <CellTemplate>
+                    <MudStack Row="true" Spacing="1">
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                       Color="Color.Primary"
+                                       Href="@($"/admin/subjects/{context.Item.Id}")" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                                       Color="Color.Error"
+                                       OnClick="@(() => DeleteSubject(context.Item))" />
+                    </MudStack>
+                </CellTemplate>
+            </TemplateColumn>
+        </Columns>
+        <PagerContent>
+            <MudDataGridPager T="Subject" />
+        </PagerContent>
+    </MudDataGrid>
+}
+
+@code {
+    private bool _loading = true;
+    private List<Subject> _subjects = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSubjectsAsync();
+    }
+
+    private async Task LoadSubjectsAsync()
+    {
+        _loading = true;
+        try
+        {
+            _subjects = await SubjectService.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to load subjects: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task DeleteSubject(Subject subject)
+    {
+        var parameters = new DialogParameters<ConfirmDialog>
+        {
+            { x => x.ContentText, $"Are you sure you want to delete \"{subject.Name}\"?" },
+            { x => x.ButtonText, "Delete" },
+            { x => x.ButtonColor, Color.Error }
+        };
+
+        var dialog = await DialogService.ShowAsync<ConfirmDialog>("Delete Subject", parameters);
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled)
+        {
+            try
+            {
+                await SubjectService.DeleteAsync(subject.Id);
+                Snackbar.Add("Subject deleted successfully.", Severity.Success);
+                await LoadSubjectsAsync();
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Failed to delete subject: {ex.Message}", Severity.Error);
+            }
+        }
+    }
+}

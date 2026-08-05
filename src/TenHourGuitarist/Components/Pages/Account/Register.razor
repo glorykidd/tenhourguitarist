@@ -1,0 +1,205 @@
+@page "/account/register"
+@using Microsoft.AspNetCore.Identity
+@using System.ComponentModel.DataAnnotations
+@using System.Text.Encodings.Web
+@inject UserManager<ApplicationUser> UserManager
+@inject NavigationManager Navigation
+@inject IEmailService EmailService
+@inject IConfiguration Configuration
+@inject ILogger<Register> Logger
+
+<PageTitle>Create Account - TenHourGuitarist</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="py-8">
+    <MudPaper Elevation="3" Class="pa-8">
+        <MudText Typo="Typo.h4" Align="Align.Center" Class="mb-2">Create Account</MudText>
+        <MudText Typo="Typo.body2" Align="Align.Center" Color="Color.Secondary" Class="mb-6">
+            Join TenHourGuitarist and start your guitar journey today.
+        </MudText>
+
+        @if (_registrationComplete)
+        {
+            <MudAlert Severity="Severity.Success" Class="mb-4">
+                <MudText Typo="Typo.h6" Class="mb-2">Registration Successful!</MudText>
+                <MudText>
+                    We've sent a verification email to <strong>@_model.Email</strong>.
+                    Please check your inbox and click the verification link to activate your account.
+                </MudText>
+            </MudAlert>
+            <MudButton Href="/account/login"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       FullWidth="true"
+                       Size="Size.Large">
+                Go to Sign In
+            </MudButton>
+        }
+        else
+        {
+            <StatusAlert Message="@_errorMessage" Severity="Severity.Error" />
+
+            <EditForm Model="_model" OnValidSubmit="HandleRegister" FormName="register">
+                <DataAnnotationsValidator />
+
+                <MudTextField @bind-Value="_model.DisplayName"
+                              Label="Display Name"
+                              Variant="Variant.Outlined"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Person"
+                              For="@(() => _model.DisplayName)"
+                              Class="mb-4" />
+
+                <MudTextField @bind-Value="_model.Email"
+                              Label="Email"
+                              Variant="Variant.Outlined"
+                              InputType="InputType.Email"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Email"
+                              For="@(() => _model.Email)"
+                              Class="mb-4" />
+
+                <MudTextField @bind-Value="_model.Password"
+                              Label="Password"
+                              Variant="Variant.Outlined"
+                              InputType="@(_showPassword ? InputType.Text : InputType.Password)"
+                              Adornment="Adornment.End"
+                              AdornmentIcon="@(_showPassword ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff)"
+                              OnAdornmentClick="() => _showPassword = !_showPassword"
+                              For="@(() => _model.Password)"
+                              HelperText="At least 8 characters with uppercase, lowercase, digit, and special character."
+                              Class="mb-4" />
+
+                <MudTextField @bind-Value="_model.ConfirmPassword"
+                              Label="Confirm Password"
+                              Variant="Variant.Outlined"
+                              InputType="@(_showConfirmPassword ? InputType.Text : InputType.Password)"
+                              Adornment="Adornment.End"
+                              AdornmentIcon="@(_showConfirmPassword ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff)"
+                              OnAdornmentClick="() => _showConfirmPassword = !_showConfirmPassword"
+                              For="@(() => _model.ConfirmPassword)"
+                              Class="mb-4" />
+
+                <MudButton ButtonType="ButtonType.Submit"
+                           Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           FullWidth="true"
+                           Size="Size.Large"
+                           Disabled="_processing"
+                           Class="mb-4">
+                    @if (_processing)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" />
+                        <span>Creating Account...</span>
+                    }
+                    else
+                    {
+                        <span>Create Account</span>
+                    }
+                </MudButton>
+            </EditForm>
+
+            <MudDivider Class="my-4" />
+
+            <MudText Align="Align.Center">
+                Already have an account?
+                <MudLink Href="/account/login" Color="Color.Primary">Sign in</MudLink>
+            </MudText>
+        }
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private RegisterModel _model = new();
+    private bool _processing;
+    private bool _showPassword;
+    private bool _showConfirmPassword;
+    private bool _registrationComplete;
+    private string? _errorMessage;
+
+    private async Task HandleRegister()
+    {
+        _errorMessage = null;
+        _processing = true;
+
+        try
+        {
+            var existingUser = await UserManager.FindByEmailAsync(_model.Email);
+            if (existingUser is not null)
+            {
+                _errorMessage = "An account with this email address already exists.";
+                return;
+            }
+
+            var user = new ApplicationUser
+            {
+                UserName = _model.Email,
+                Email = _model.Email,
+                DisplayName = _model.DisplayName,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            var result = await UserManager.CreateAsync(user, _model.Password);
+
+            if (result.Succeeded)
+            {
+                Logger.LogInformation("New user registered: {Email}", _model.Email);
+
+                // Assign default Member role
+                await UserManager.AddToRoleAsync(user, "Member");
+
+                // Generate email confirmation token and send verification email
+                var token = await UserManager.GenerateEmailConfirmationTokenAsync(user);
+                var siteUrl = Configuration["SiteUrl"]?.TrimEnd('/') ?? "https://tenhourguitarist.com";
+                var verifyUrl = $"{siteUrl}/account/verify-email?userId={UrlEncoder.Default.Encode(user.Id)}&token={UrlEncoder.Default.Encode(token)}";
+
+                try
+                {
+                    await EmailService.SendVerifyEmailAsync(user.Email!, user.DisplayName, verifyUrl);
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError(ex, "Failed to send verification email to {Email}", user.Email);
+                    // Registration still succeeded; user can request a new verification email later
+                }
+
+                _registrationComplete = true;
+            }
+            else
+            {
+                var errors = string.Join(" ", result.Errors.Select(e => e.Description));
+                _errorMessage = errors;
+                Logger.LogWarning("Registration failed for {Email}: {Errors}", _model.Email, errors);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error during registration for {Email}", _model.Email);
+            _errorMessage = "An unexpected error occurred. Please try again.";
+        }
+        finally
+        {
+            _processing = false;
+        }
+    }
+
+    private sealed class RegisterModel
+    {
+        [Required(ErrorMessage = "Display name is required.")]
+        [StringLength(100, MinimumLength = 2, ErrorMessage = "Display name must be between 2 and 100 characters.")]
+        public string DisplayName { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Email is required.")]
+        [EmailAddress(ErrorMessage = "Please enter a valid email address.")]
+        public string Email { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Password is required.")]
+        [StringLength(100, MinimumLength = 8, ErrorMessage = "Password must be at least 8 characters.")]
+        [RegularExpression(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z\d]).{8,}$",
+            ErrorMessage = "Password must contain at least one uppercase letter, one lowercase letter, one digit, and one special character.")]
+        public string Password { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Please confirm your password.")]
+        [Compare(nameof(Password), ErrorMessage = "Passwords do not match.")]
+        public string ConfirmPassword { get; set; } = string.Empty;
+    }
+}

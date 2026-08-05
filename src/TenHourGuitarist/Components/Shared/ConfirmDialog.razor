@@ -1,0 +1,22 @@
+@inject IDialogService DialogService
+
+<MudDialog>
+    <DialogContent>
+        <MudText>@ContentText</MudText>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="@ButtonColor" Variant="Variant.Filled" OnClick="Submit">@ButtonText</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance? MudDialog { get; set; }
+
+    [Parameter] public string ContentText { get; set; } = "Are you sure you want to delete this item?";
+    [Parameter] public string ButtonText { get; set; } = "Delete";
+    [Parameter] public Color ButtonColor { get; set; } = Color.Error;
+
+    private void Submit() => MudDialog?.Close(DialogResult.Ok(true));
+    private void Cancel() => MudDialog?.Cancel();
+}

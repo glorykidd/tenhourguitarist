@@ -1,0 +1,205 @@
+@page "/admin/account"
+@layout AdminLayout
+@attribute [Authorize(Policy = "InstructorOrAdmin")]
+
+@inject UserManager<ApplicationUser> UserManager
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ISnackbar Snackbar
+
+@using Microsoft.AspNetCore.Identity
+
+<PageTitle>Account Settings</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Account Settings</MudText>
+
+@if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else if (_user is null)
+{
+    <MudAlert Severity="Severity.Error">Unable to load account information.</MudAlert>
+}
+else
+{
+    <MudGrid>
+        <MudItem xs="12" md="6">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.h6" Class="mb-3">Profile</MudText>
+                <MudForm @ref="_profileForm" @bind-IsValid="_profileValid">
+                    <MudStack Spacing="3">
+                        <MudTextField @bind-Value="_user.DisplayName" Label="Display Name" Required="true"
+                                      RequiredError="Display name is required" />
+
+                        <MudTextField Value="@_user.Email" Label="Email" Disabled="true" />
+
+                        <ImageUpload CurrentImagePath="@_user.ProfileImagePath"
+                                     Subfolder="profiles"
+                                     OnUploaded="OnProfileImageUploaded" />
+
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                   OnClick="SaveProfileAsync" Disabled="@(!_profileValid || _savingProfile)">
+                            @if (_savingProfile)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                            }
+                            Update Profile
+                        </MudButton>
+                    </MudStack>
+                </MudForm>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="6">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.h6" Class="mb-3">Change Password</MudText>
+                <MudForm @ref="_passwordForm" @bind-IsValid="_passwordValid">
+                    <MudStack Spacing="3">
+                        <MudTextField @bind-Value="_currentPassword" Label="Current Password"
+                                      InputType="InputType.Password" Required="true"
+                                      RequiredError="Current password is required" />
+
+                        <MudTextField @bind-Value="_newPassword" Label="New Password"
+                                      InputType="InputType.Password" Required="true"
+                                      RequiredError="New password is required"
+                                      HelperText="Min 8 chars, uppercase, lowercase, digit, special char" />
+
+                        <MudTextField @bind-Value="_confirmPassword" Label="Confirm New Password"
+                                      InputType="InputType.Password" Required="true"
+                                      RequiredError="Please confirm your new password"
+                                      Validation="@(new Func<string, string?>(ValidateConfirmPassword))" />
+
+                        <MudButton Variant="Variant.Filled" Color="Color.Warning"
+                                   OnClick="ChangePasswordAsync" Disabled="@(!_passwordValid || _changingPassword)">
+                            @if (_changingPassword)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                            }
+                            Change Password
+                        </MudButton>
+                    </MudStack>
+                </MudForm>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _savingProfile;
+    private bool _changingPassword;
+    private bool _profileValid;
+    private bool _passwordValid;
+    private MudForm _profileForm = null!;
+    private MudForm _passwordForm = null!;
+    private ApplicationUser? _user;
+    private string _currentPassword = string.Empty;
+    private string _newPassword = string.Empty;
+    private string _confirmPassword = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _loading = true;
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var userId = authState.User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (!string.IsNullOrEmpty(userId))
+            {
+                _user = await UserManager.FindByIdAsync(userId);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to load account: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void OnProfileImageUploaded(string path)
+    {
+        if (_user is not null)
+        {
+            _user.ProfileImagePath = path;
+        }
+    }
+
+    private async Task SaveProfileAsync()
+    {
+        await _profileForm.Validate();
+        if (!_profileValid || _user is null) return;
+
+        _savingProfile = true;
+        try
+        {
+            var result = await UserManager.UpdateAsync(_user);
+            if (result.Succeeded)
+            {
+                Snackbar.Add("Profile updated successfully.", Severity.Success);
+            }
+            else
+            {
+                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                Snackbar.Add($"Failed to update profile: {errors}", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to update profile: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _savingProfile = false;
+        }
+    }
+
+    private string? ValidateConfirmPassword(string confirmPwd)
+    {
+        if (confirmPwd != _newPassword)
+            return "Passwords do not match.";
+        return null;
+    }
+
+    private async Task ChangePasswordAsync()
+    {
+        await _passwordForm.Validate();
+        if (!_passwordValid || _user is null) return;
+
+        if (_newPassword != _confirmPassword)
+        {
+            Snackbar.Add("Passwords do not match.", Severity.Error);
+            return;
+        }
+
+        _changingPassword = true;
+        try
+        {
+            var result = await UserManager.ChangePasswordAsync(_user, _currentPassword, _newPassword);
+            if (result.Succeeded)
+            {
+                Snackbar.Add("Password changed successfully.", Severity.Success);
+                _currentPassword = string.Empty;
+                _newPassword = string.Empty;
+                _confirmPassword = string.Empty;
+                await _passwordForm.ResetAsync();
+            }
+            else
+            {
+                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                Snackbar.Add($"Failed to change password: {errors}", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to change password: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _changingPassword = false;
+        }
+    }
+}

@@ -1,0 +1,186 @@
+@page "/admin/instructors/new"
+@page "/admin/instructors/{UserId}"
+@layout AdminLayout
+@attribute [Authorize(Policy = "AdminOnly")]
+
+@inject UserManager<ApplicationUser> UserManager
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+
+@using Microsoft.AspNetCore.Identity
+
+<PageTitle>@(_isEdit ? "Edit Instructor" : "Add Instructor")</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">@(_isEdit ? "Edit Instructor" : "Add Instructor")</MudText>
+
+@if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else
+{
+    <MudPaper Class="pa-4" Elevation="2">
+        <MudForm @ref="_form" @bind-IsValid="_formValid">
+            <MudGrid>
+                @if (!_isEdit)
+                {
+                    <MudItem xs="12">
+                        <MudText Typo="Typo.body1" Class="mb-2">
+                            Select an existing user to grant the Instructor role, or enter details for a new user.
+                        </MudText>
+                    </MudItem>
+
+                    <MudItem xs="12" md="6">
+                        <MudSelect T="string" Label="Existing User" @bind-Value="_selectedUserId"
+                                   Clearable="true" HelperText="Select a user or leave blank to create new">
+                            @foreach (var user in _nonInstructorUsers)
+                            {
+                                <MudSelectItem Value="@user.Id">@user.DisplayName (@user.Email)</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+                }
+
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_displayName" Label="Display Name" Required="true"
+                                  RequiredError="Display name is required" />
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_email" Label="Email" Required="true"
+                                  RequiredError="Email is required"
+                                  InputType="InputType.Email"
+                                  Disabled="@(_isEdit)" />
+                </MudItem>
+
+                <MudItem xs="12" Class="d-flex gap-2">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                               OnClick="SaveAsync" Disabled="@(!_formValid || _saving)">
+                        @if (_saving)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        }
+                        @(_isEdit ? "Update Instructor" : "Add Instructor")
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined" Href="/admin/instructors">Cancel</MudButton>
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+    </MudPaper>
+}
+
+@code {
+    [Parameter] public string? UserId { get; set; }
+
+    private MudForm _form = null!;
+    private bool _formValid;
+    private bool _loading = true;
+    private bool _saving;
+    private bool _isEdit;
+    private string _displayName = string.Empty;
+    private string _email = string.Empty;
+    private string? _selectedUserId;
+    private ApplicationUser? _user;
+    private List<ApplicationUser> _nonInstructorUsers = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isEdit = !string.IsNullOrEmpty(UserId) && UserId != "new";
+
+        if (_isEdit)
+        {
+            _user = await UserManager.FindByIdAsync(UserId!);
+            if (_user is null)
+            {
+                Snackbar.Add("Instructor not found.", Severity.Error);
+                Navigation.NavigateTo("/admin/instructors");
+                return;
+            }
+            _displayName = _user.DisplayName;
+            _email = _user.Email ?? string.Empty;
+        }
+        else
+        {
+            var instructors = await UserManager.GetUsersInRoleAsync("Instructor");
+            var instructorIds = instructors.Select(i => i.Id).ToHashSet();
+            _nonInstructorUsers = UserManager.Users
+                .ToList()
+                .Where(u => !instructorIds.Contains(u.Id) && !u.IsDeleted)
+                .ToList();
+        }
+
+        _loading = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        await _form.Validate();
+        if (!_formValid) return;
+
+        _saving = true;
+        try
+        {
+            if (_isEdit)
+            {
+                if (_user is not null)
+                {
+                    _user.DisplayName = _displayName;
+                    var result = await UserManager.UpdateAsync(_user);
+                    if (!result.Succeeded)
+                    {
+                        var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                        Snackbar.Add($"Failed to update: {errors}", Severity.Error);
+                        return;
+                    }
+                    Snackbar.Add("Instructor updated successfully.", Severity.Success);
+                }
+            }
+            else
+            {
+                ApplicationUser? targetUser;
+
+                if (!string.IsNullOrEmpty(_selectedUserId))
+                {
+                    targetUser = await UserManager.FindByIdAsync(_selectedUserId);
+                }
+                else
+                {
+                    targetUser = await UserManager.FindByEmailAsync(_email);
+                }
+
+                if (targetUser is null)
+                {
+                    Snackbar.Add("User not found. Please select an existing user.", Severity.Error);
+                    return;
+                }
+
+                targetUser.DisplayName = _displayName;
+                await UserManager.UpdateAsync(targetUser);
+
+                var isInRole = await UserManager.IsInRoleAsync(targetUser, "Instructor");
+                if (!isInRole)
+                {
+                    var roleResult = await UserManager.AddToRoleAsync(targetUser, "Instructor");
+                    if (!roleResult.Succeeded)
+                    {
+                        var errors = string.Join(", ", roleResult.Errors.Select(e => e.Description));
+                        Snackbar.Add($"Failed to assign role: {errors}", Severity.Error);
+                        return;
+                    }
+                }
+
+                Snackbar.Add("Instructor added successfully.", Severity.Success);
+            }
+
+            Navigation.NavigateTo("/admin/instructors");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to save instructor: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

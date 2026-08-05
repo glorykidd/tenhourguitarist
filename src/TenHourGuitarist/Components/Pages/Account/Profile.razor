@@ -1,0 +1,317 @@
+@page "/account/profile"
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Identity
+@using System.ComponentModel.DataAnnotations
+@inject UserManager<ApplicationUser> UserManager
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ISnackbar Snackbar
+@inject ILogger<Profile> Logger
+
+<PageTitle>My Profile - TenHourGuitarist</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="py-8">
+    <MudText Typo="Typo.h4" Class="mb-6">My Profile</MudText>
+
+    @if (_loading)
+    {
+        <LoadingSpinner Message="Loading profile..." />
+    }
+    else if (_user is null)
+    {
+        <MudAlert Severity="Severity.Error">Unable to load your profile. Please try signing in again.</MudAlert>
+    }
+    else
+    {
+        <MudGrid>
+            @* Profile Information Section *@
+            <MudItem xs="12" md="8">
+                <MudPaper Elevation="2" Class="pa-6 mb-6">
+                    <MudText Typo="Typo.h5" Class="mb-4">Profile Information</MudText>
+
+                    <StatusAlert Message="@_profileMessage" Severity="@_profileSeverity" />
+
+                    <EditForm Model="_profileModel" OnValidSubmit="HandleUpdateProfile" FormName="profile">
+                        <DataAnnotationsValidator />
+
+                        <MudTextField @bind-Value="_profileModel.DisplayName"
+                                      Label="Display Name"
+                                      Variant="Variant.Outlined"
+                                      Adornment="Adornment.Start"
+                                      AdornmentIcon="@Icons.Material.Filled.Person"
+                                      For="@(() => _profileModel.DisplayName)"
+                                      Class="mb-4" />
+
+                        <MudTextField Value="@_user.Email"
+                                      Label="Email"
+                                      Variant="Variant.Outlined"
+                                      Adornment="Adornment.Start"
+                                      AdornmentIcon="@Icons.Material.Filled.Email"
+                                      ReadOnly="true"
+                                      Class="mb-4" />
+
+                        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+                            Member since @_user.CreatedAt.ToString("MMMM dd, yyyy")
+                        </MudText>
+
+                        <MudButton ButtonType="ButtonType.Submit"
+                                   Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   Disabled="_updatingProfile">
+                            @if (_updatingProfile)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" />
+                                <span>Saving...</span>
+                            }
+                            else
+                            {
+                                <span>Save Changes</span>
+                            }
+                        </MudButton>
+                    </EditForm>
+                </MudPaper>
+            </MudItem>
+
+            @* Profile Image Section *@
+            <MudItem xs="12" md="4">
+                <MudPaper Elevation="2" Class="pa-6 mb-6">
+                    <MudText Typo="Typo.h5" Class="mb-4">Profile Image</MudText>
+
+                    <div class="d-flex flex-column align-center">
+                        @if (!string.IsNullOrEmpty(_user.ProfileImagePath))
+                        {
+                            <MudAvatar Size="Size.Large" Style="width: 150px; height: 150px;" Class="mb-4">
+                                <MudImage Src="@_user.ProfileImagePath" Alt="Profile" />
+                            </MudAvatar>
+                        }
+                        else
+                        {
+                            <MudAvatar Size="Size.Large" Color="Color.Primary" Style="width: 150px; height: 150px; font-size: 3rem;" Class="mb-4">
+                                @(_user.DisplayName?.FirstOrDefault())
+                            </MudAvatar>
+                        }
+
+                        <ImageUpload CurrentImagePath="@_user.ProfileImagePath"
+                                     Subfolder="profiles"
+                                     OnUploaded="HandleImageUploaded" />
+                    </div>
+                </MudPaper>
+            </MudItem>
+
+            @* Change Password Section *@
+            <MudItem xs="12">
+                <MudPaper Elevation="2" Class="pa-6">
+                    <MudText Typo="Typo.h5" Class="mb-4">Change Password</MudText>
+
+                    <StatusAlert Message="@_passwordMessage" Severity="@_passwordSeverity" />
+
+                    <EditForm Model="_passwordModel" OnValidSubmit="HandleChangePassword" FormName="change-password">
+                        <DataAnnotationsValidator />
+
+                        <MudGrid>
+                            <MudItem xs="12" md="4">
+                                <MudTextField @bind-Value="_passwordModel.CurrentPassword"
+                                              Label="Current Password"
+                                              Variant="Variant.Outlined"
+                                              InputType="InputType.Password"
+                                              For="@(() => _passwordModel.CurrentPassword)"
+                                              Class="mb-4" />
+                            </MudItem>
+                            <MudItem xs="12" md="4">
+                                <MudTextField @bind-Value="_passwordModel.NewPassword"
+                                              Label="New Password"
+                                              Variant="Variant.Outlined"
+                                              InputType="InputType.Password"
+                                              For="@(() => _passwordModel.NewPassword)"
+                                              HelperText="At least 8 characters with uppercase, lowercase, digit, and special character."
+                                              Class="mb-4" />
+                            </MudItem>
+                            <MudItem xs="12" md="4">
+                                <MudTextField @bind-Value="_passwordModel.ConfirmPassword"
+                                              Label="Confirm New Password"
+                                              Variant="Variant.Outlined"
+                                              InputType="InputType.Password"
+                                              For="@(() => _passwordModel.ConfirmPassword)"
+                                              Class="mb-4" />
+                            </MudItem>
+                        </MudGrid>
+
+                        <MudButton ButtonType="ButtonType.Submit"
+                                   Variant="Variant.Filled"
+                                   Color="Color.Warning"
+                                   Disabled="_changingPassword">
+                            @if (_changingPassword)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="me-2" />
+                                <span>Changing Password...</span>
+                            }
+                            else
+                            {
+                                <span>Change Password</span>
+                            }
+                        </MudButton>
+                    </EditForm>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    }
+</MudContainer>
+
+@code {
+    private ApplicationUser? _user;
+    private bool _loading = true;
+    private bool _updatingProfile;
+    private bool _changingPassword;
+
+    private ProfileModel _profileModel = new();
+    private ChangePasswordModel _passwordModel = new();
+
+    private string? _profileMessage;
+    private Severity _profileSeverity = Severity.Info;
+    private string? _passwordMessage;
+    private Severity _passwordSeverity = Severity.Info;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var userId = authState.User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (!string.IsNullOrEmpty(userId))
+            {
+                _user = await UserManager.FindByIdAsync(userId);
+                if (_user is not null)
+                {
+                    _profileModel.DisplayName = _user.DisplayName;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading user profile");
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task HandleUpdateProfile()
+    {
+        if (_user is null) return;
+
+        _profileMessage = null;
+        _updatingProfile = true;
+
+        try
+        {
+            _user.DisplayName = _profileModel.DisplayName;
+            var result = await UserManager.UpdateAsync(_user);
+
+            if (result.Succeeded)
+            {
+                _profileMessage = "Profile updated successfully.";
+                _profileSeverity = Severity.Success;
+                Snackbar.Add("Profile updated.", Severity.Success);
+            }
+            else
+            {
+                _profileMessage = string.Join(" ", result.Errors.Select(e => e.Description));
+                _profileSeverity = Severity.Error;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error updating profile for user {UserId}", _user.Id);
+            _profileMessage = "An unexpected error occurred. Please try again.";
+            _profileSeverity = Severity.Error;
+        }
+        finally
+        {
+            _updatingProfile = false;
+        }
+    }
+
+    private async Task HandleImageUploaded(string imagePath)
+    {
+        if (_user is null) return;
+
+        try
+        {
+            _user.ProfileImagePath = imagePath;
+            var result = await UserManager.UpdateAsync(_user);
+
+            if (!result.Succeeded)
+            {
+                Logger.LogWarning("Failed to update profile image for user {UserId}", _user.Id);
+                Snackbar.Add("Failed to save profile image.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error updating profile image for user {UserId}", _user.Id);
+            Snackbar.Add("Failed to save profile image.", Severity.Error);
+        }
+    }
+
+    private async Task HandleChangePassword()
+    {
+        if (_user is null) return;
+
+        _passwordMessage = null;
+        _changingPassword = true;
+
+        try
+        {
+            var result = await UserManager.ChangePasswordAsync(_user, _passwordModel.CurrentPassword, _passwordModel.NewPassword);
+
+            if (result.Succeeded)
+            {
+                _passwordMessage = "Password changed successfully.";
+                _passwordSeverity = Severity.Success;
+                _passwordModel = new ChangePasswordModel();
+                Snackbar.Add("Password changed.", Severity.Success);
+                Logger.LogInformation("Password changed for user {UserId}", _user.Id);
+            }
+            else
+            {
+                var errors = result.Errors.Select(e => e.Description).ToList();
+                _passwordMessage = string.Join(" ", errors);
+                _passwordSeverity = Severity.Error;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error changing password for user {UserId}", _user.Id);
+            _passwordMessage = "An unexpected error occurred. Please try again.";
+            _passwordSeverity = Severity.Error;
+        }
+        finally
+        {
+            _changingPassword = false;
+        }
+    }
+
+    private sealed class ProfileModel
+    {
+        [Required(ErrorMessage = "Display name is required.")]
+        [StringLength(100, MinimumLength = 2, ErrorMessage = "Display name must be between 2 and 100 characters.")]
+        public string DisplayName { get; set; } = string.Empty;
+    }
+
+    private sealed class ChangePasswordModel
+    {
+        [Required(ErrorMessage = "Current password is required.")]
+        public string CurrentPassword { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "New password is required.")]
+        [StringLength(100, MinimumLength = 8, ErrorMessage = "Password must be at least 8 characters.")]
+        [RegularExpression(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z\d]).{8,}$",
+            ErrorMessage = "Password must contain at least one uppercase letter, one lowercase letter, one digit, and one special character.")]
+        public string NewPassword { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Please confirm your new password.")]
+        [Compare(nameof(NewPassword), ErrorMessage = "Passwords do not match.")]
+        public string ConfirmPassword { get; set; } = string.Empty;
+    }
+}

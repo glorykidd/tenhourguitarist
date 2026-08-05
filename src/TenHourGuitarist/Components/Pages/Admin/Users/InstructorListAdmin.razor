@@ -1,0 +1,78 @@
+@page "/admin/instructors"
+@layout AdminLayout
+@attribute [Authorize(Policy = "AdminOnly")]
+
+@inject UserManager<ApplicationUser> UserManager
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+
+@using Microsoft.AspNetCore.Identity
+
+<PageTitle>Manage Instructors</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+    <MudText Typo="Typo.h4">Instructors</MudText>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Add"
+               Href="/admin/instructors/new">
+        Add Instructor
+    </MudButton>
+</MudStack>
+
+@if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else
+{
+    <MudDataGrid Items="@_instructors" Dense="true" Striped="true" Hover="true" Filterable="true" SortMode="SortMode.Multiple">
+        <Columns>
+            <PropertyColumn Property="x => x.Email" Title="Email" />
+            <PropertyColumn Property="x => x.DisplayName" Title="Display Name" />
+            <TemplateColumn Title="Created">
+                <CellTemplate>
+                    <MudText>@context.Item.CreatedAt.ToString("MMM dd, yyyy")</MudText>
+                </CellTemplate>
+            </TemplateColumn>
+            <TemplateColumn Title="Deleted">
+                <CellTemplate>
+                    <MudIcon Icon="@(context.Item.IsDeleted ? Icons.Material.Filled.Check : Icons.Material.Filled.Close)"
+                             Color="@(context.Item.IsDeleted ? Color.Error : Color.Default)" />
+                </CellTemplate>
+            </TemplateColumn>
+            <TemplateColumn Title="Actions" Sortable="false" Filterable="false">
+                <CellTemplate>
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                   Color="Color.Primary"
+                                   Href="@($"/admin/instructors/{context.Item.Id}")" />
+                </CellTemplate>
+            </TemplateColumn>
+        </Columns>
+        <PagerContent>
+            <MudDataGridPager T="ApplicationUser" />
+        </PagerContent>
+    </MudDataGrid>
+}
+
+@code {
+    private bool _loading = true;
+    private List<ApplicationUser> _instructors = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _loading = true;
+        try
+        {
+            var instructors = await UserManager.GetUsersInRoleAsync("Instructor");
+            _instructors = instructors.ToList();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to load instructors: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

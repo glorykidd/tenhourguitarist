@@ -1,0 +1,164 @@
+@page "/admin/orders/{Id:int}"
+@layout AdminLayout
+@attribute [Authorize(Policy = "AdminOnly")]
+
+@inject IOrderService OrderService
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+
+<PageTitle>Order Detail</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/admin/orders" />
+    <MudText Typo="Typo.h4">Order Detail</MudText>
+</MudStack>
+
+@if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else if (_order is null)
+{
+    <MudAlert Severity="Severity.Error">Order not found.</MudAlert>
+}
+else
+{
+    <MudGrid>
+        <MudItem xs="12" md="6">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.h6" Class="mb-3">Order Information</MudText>
+                <MudSimpleTable Dense="true" Bordered="true">
+                    <tbody>
+                        <tr>
+                            <td><strong>Order ID</strong></td>
+                            <td>@_order.Id</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Order Reference</strong></td>
+                            <td>@_order.OrderRefId</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Amount</strong></td>
+                            <td>@_order.Amount.ToString("C")</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Status</strong></td>
+                            <td>
+                                <MudChip T="string" Color="@GetStatusColor(_order.PaymentStatus)" Size="Size.Small">
+                                    @_order.PaymentStatus
+                                </MudChip>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>Created</strong></td>
+                            <td>@_order.CreatedAt.ToString("MMM dd, yyyy HH:mm:ss")</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Payment Date</strong></td>
+                            <td>@(_order.PaymentDate?.ToString("MMM dd, yyyy HH:mm:ss") ?? "N/A")</td>
+                        </tr>
+                    </tbody>
+                </MudSimpleTable>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="6">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.h6" Class="mb-3">User Information</MudText>
+                <MudSimpleTable Dense="true" Bordered="true">
+                    <tbody>
+                        <tr>
+                            <td><strong>User ID</strong></td>
+                            <td>@_order.UserId</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Email</strong></td>
+                            <td>@_order.User?.Email</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Display Name</strong></td>
+                            <td>@_order.User?.DisplayName</td>
+                        </tr>
+                    </tbody>
+                </MudSimpleTable>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="6">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.h6" Class="mb-3">Package Information</MudText>
+                <MudSimpleTable Dense="true" Bordered="true">
+                    <tbody>
+                        <tr>
+                            <td><strong>Package</strong></td>
+                            <td>@_order.Package?.Title</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Package Amount</strong></td>
+                            <td>@_order.Package?.Amount.ToString("C")</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Duration</strong></td>
+                            <td>@(_order.Package?.DurationCount) @(_order.Package?.DurationUnit)(s)</td>
+                        </tr>
+                    </tbody>
+                </MudSimpleTable>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="6">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.h6" Class="mb-3">Stripe Information</MudText>
+                <MudSimpleTable Dense="true" Bordered="true">
+                    <tbody>
+                        <tr>
+                            <td><strong>Session ID</strong></td>
+                            <td style="word-break: break-all;">@(_order.StripeSessionId ?? "N/A")</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Payment Intent ID</strong></td>
+                            <td style="word-break: break-all;">@(_order.StripePaymentIntentId ?? "N/A")</td>
+                        </tr>
+                    </tbody>
+                </MudSimpleTable>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private bool _loading = true;
+    private Order? _order;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _loading = true;
+        try
+        {
+            _order = await OrderService.GetByIdAsync(Id);
+            if (_order is null)
+            {
+                Snackbar.Add("Order not found.", Severity.Warning);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to load order: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private static Color GetStatusColor(PaymentStatus status) => status switch
+    {
+        PaymentStatus.Success => Color.Success,
+        PaymentStatus.Pending => Color.Warning,
+        PaymentStatus.Failed => Color.Error,
+        PaymentStatus.Cancelled => Color.Default,
+        _ => Color.Default
+    };
+}

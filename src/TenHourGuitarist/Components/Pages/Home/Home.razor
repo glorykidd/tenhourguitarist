@@ -1,0 +1,50 @@
+@page "/"
+@inject ICourseService CourseService
+
+<PageTitle>TenHourGuitarist - Learn Guitar Online</PageTitle>
+
+<!-- Hero section with dark bg, headline, CTA buttons -->
+<section class="bg-dark text-white py-5">
+    <div class="container text-center">
+        <h1 class="display-4 fw-bold">Learn Guitar Your Way</h1>
+        <p class="lead mt-3">Expert instruction, structured curriculum, and a passionate community.</p>
+        <div class="mt-4">
+            <a href="/courses" class="btn btn-primary btn-lg me-2">Browse Courses</a>
+            <a href="/subscribe/packages" class="btn btn-outline-light btn-lg">Subscribe</a>
+        </div>
+    </div>
+</section>
+
+<!-- Featured courses grid (up to 6) -->
+<section class="container py-5">
+    <h2 class="text-center mb-4">Featured Courses</h2>
+    @if (_loading)
+    {
+        <LoadingSpinner />
+    }
+    else
+    {
+        <div class="row g-4">
+        @foreach (var course in _courses)
+        {
+            <div class="col-md-4">
+                <CourseCard Course="course" />
+            </div>
+        }
+        </div>
+        <div class="text-center mt-4">
+            <a href="/courses" class="btn btn-outline-primary">View All Courses</a>
+        </div>
+    }
+</section>
+
+@code {
+    private List<Course> _courses = [];
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _courses = await CourseService.SearchAsync(null, null, 1, 6);
+        _loading = false;
+    }
+}

@@ -1,0 +1,41 @@
+@if (Course is not null)
+{
+    <MudCard Class="course-card h-100" Elevation="2">
+        @if (!string.IsNullOrEmpty(Course.CoverImagePath))
+        {
+            <MudCardMedia Image="@Course.CoverImagePath" Height="200" />
+        }
+        else
+        {
+            <MudCardMedia Image="/images/course-placeholder.jpg" Height="200" />
+        }
+        <MudCardContent>
+            <MudText Typo="Typo.h6">@Course.Name</MudText>
+            <MudChip T="string" Color="@GetLevelColor()" Size="Size.Small" Class="mt-1">@Course.Level.ToString()</MudChip>
+            @if (Course.IsFree)
+            {
+                <MudChip T="string" Color="Color.Success" Size="Size.Small">Free</MudChip>
+            }
+            <MudText Typo="Typo.body2" Class="mt-2 text-muted">
+                @(Course.Description?.Length > 120 ? Course.Description[..120] + "..." : Course.Description)
+            </MudText>
+        </MudCardContent>
+        <MudCardActions>
+            <MudButton Variant="Variant.Text" Color="Color.Primary" Href="@($"/courses/{Course.Slug}")">
+                View Course
+            </MudButton>
+        </MudCardActions>
+    </MudCard>
+}
+
+@code {
+    [Parameter] public Course? Course { get; set; }
+
+    private Color GetLevelColor() => Course?.Level switch
+    {
+        CourseLevel.Beginner => Color.Success,
+        CourseLevel.Intermediate => Color.Warning,
+        CourseLevel.Advanced => Color.Error,
+        _ => Color.Default
+    };
+}

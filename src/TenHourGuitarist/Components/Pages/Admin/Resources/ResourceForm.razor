@@ -1,0 +1,160 @@
+@page "/admin/resources/new"
+@page "/admin/resources/{Id:int}"
+@layout AdminLayout
+@attribute [Authorize(Policy = "AdminOnly")]
+
+@inject IFreeResourceService ResourceService
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+
+@using System.Text.RegularExpressions
+
+<PageTitle>@(_isEdit ? "Edit Resource" : "Add Resource")</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">@(_isEdit ? "Edit Resource" : "Add Resource")</MudText>
+
+@if (_loading)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else
+{
+    <MudPaper Class="pa-4" Elevation="2">
+        <MudForm @ref="_form" @bind-IsValid="_formValid">
+            <MudGrid>
+                <MudItem xs="12" md="8">
+                    <MudTextField @bind-Value="_resource.Name" Label="Name" Required="true"
+                                  RequiredError="Name is required"
+                                  Immediate="true"
+                                  TextChanged="OnNameChanged" />
+                </MudItem>
+
+                <MudItem xs="12" md="4">
+                    <MudTextField @bind-Value="_resource.Slug" Label="Slug" Required="true"
+                                  RequiredError="Slug is required"
+                                  HelperText="Auto-generated from name" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_resource.Description" Label="Description"
+                                  Lines="5" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudTextField @bind-Value="_resource.VideoUrl" Label="Video URL" />
+                </MudItem>
+
+                <MudItem xs="12">
+                    <ImageUpload CurrentImagePath="@_resource.CoverImagePath"
+                                 Subfolder="resources"
+                                 OnUploaded="OnCoverImageUploaded" />
+                </MudItem>
+
+                <MudItem xs="12" Class="d-flex gap-2">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                               OnClick="SaveAsync" Disabled="@(!_formValid || _saving)">
+                        @if (_saving)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        }
+                        @(_isEdit ? "Update Resource" : "Create Resource")
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined" Href="/admin/resources">Cancel</MudButton>
+                </MudItem>
+            </MudGrid>
+        </MudForm>
+    </MudPaper>
+}
+
+@code {
+    [Parameter] public int? Id { get; set; }
+
+    private MudForm _form = null!;
+    private bool _formValid;
+    private bool _loading = true;
+    private bool _saving;
+    private bool _isEdit;
+    private FreeResource _resource = new();
+    private string _currentUserId = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isEdit = Id.HasValue;
+
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        _currentUserId = authState.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+
+        if (_isEdit)
+        {
+            var resource = await ResourceService.GetByIdAsync(Id!.Value);
+            if (resource is null)
+            {
+                Snackbar.Add("Resource not found.", Severity.Error);
+                Navigation.NavigateTo("/admin/resources");
+                return;
+            }
+            _resource = resource;
+        }
+        else
+        {
+            _resource.AuthorId = _currentUserId;
+        }
+
+        _loading = false;
+    }
+
+    private void OnNameChanged(string name)
+    {
+        if (!_isEdit || string.IsNullOrEmpty(_resource.Slug))
+        {
+            _resource.Slug = GenerateSlug(name);
+        }
+    }
+
+    private static string GenerateSlug(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return string.Empty;
+        var slug = text.ToLowerInvariant();
+        slug = Regex.Replace(slug, @"[^a-z0-9\s-]", "");
+        slug = Regex.Replace(slug, @"\s+", "-");
+        slug = Regex.Replace(slug, @"-+", "-");
+        return slug.Trim('-');
+    }
+
+    private void OnCoverImageUploaded(string path)
+    {
+        _resource.CoverImagePath = path;
+    }
+
+    private async Task SaveAsync()
+    {
+        await _form.Validate();
+        if (!_formValid) return;
+
+        _saving = true;
+        try
+        {
+            if (_isEdit)
+            {
+                await ResourceService.UpdateAsync(_resource);
+                Snackbar.Add("Resource updated successfully.", Severity.Success);
+            }
+            else
+            {
+                _resource.AuthorId = _currentUserId;
+                await ResourceService.CreateAsync(_resource);
+                Snackbar.Add("Resource created successfully.", Severity.Success);
+            }
+            Navigation.NavigateTo("/admin/resources");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to save resource: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

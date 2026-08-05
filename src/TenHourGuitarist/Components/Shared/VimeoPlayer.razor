@@ -1,0 +1,14 @@
+@if (!string.IsNullOrEmpty(VideoUrl))
+{
+    <div class="ratio ratio-16x9">
+        <iframe src="@VideoUrl"
+                allow="autoplay; fullscreen; picture-in-picture"
+                allowfullscreen
+                style="border: none;">
+        </iframe>
+    </div>
+}
+
+@code {
+    [Parameter] public string? VideoUrl { get; set; }
+}
